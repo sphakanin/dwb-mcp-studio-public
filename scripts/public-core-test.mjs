@@ -163,6 +163,7 @@ try {
       'dwb_list_sessions',
       'dwb_list_detached_sessions',
       'dwb_resume_session',
+      'skills',
       'workspace',
     ].sort(),
   );
@@ -185,6 +186,68 @@ try {
   await call(a, 'workspace', { action: 'bind', workspace: bound });
   const reboundConfig = JSON.parse((await call(a, 'get_config')).content[0].text);
   assert.equal(reboundConfig.cwd, bound);
+
+  const skillSource = resolve(bound, '.agents', 'skills', 'demo-skill');
+  await mkdir(skillSource, { recursive: true });
+  await writeFile(
+    resolve(skillSource, 'SKILL.md'),
+    [
+      '---',
+      'name: demo-skill',
+      'description: Demo integration skill.',
+      '---',
+      '',
+      '# Demo',
+      'Follow the demo procedure.',
+    ].join('\n'),
+  );
+  await writeFile(resolve(skillSource, 'guide.md'), '# Companion\nRead only after activation.');
+  const installedSkill = await call(a, 'skills', {
+    action: 'install_local',
+    path: skillSource,
+    policy: 'ask',
+  });
+  assert.equal(installedSkill.structuredContent.installed.id, 'demo-skill');
+  const catalog = await call(a, 'skills', { action: 'list' });
+  assert.equal(catalog.structuredContent.skills[0].policy, 'ask');
+
+  const skillPending = await call(a, 'skills', { action: 'activate', skill: 'demo-skill' });
+  assert.equal(skillPending.structuredContent.status, 'approval_required');
+  const approvalId = skillPending.structuredContent.approvalId;
+  const approved = await call(a, 'skills', {
+    action: 'activate',
+    skill: 'demo-skill',
+    approval_id: approvalId,
+    user_confirmed: true,
+  });
+  assert.equal(approved.structuredContent.status, 'active');
+  assert.match(approved.structuredContent.instructions, /Follow the demo procedure/);
+  const companion = await call(a, 'skills', {
+    action: 'read_file',
+    skill: 'demo-skill',
+    relative_path: 'guide.md',
+  });
+  assert.match(companion.structuredContent.content, /Read only after activation/);
+
+  await call(a, 'skills', {
+    action: 'set_workspace_policy',
+    skill: 'demo-skill',
+    policy: 'manual',
+  });
+  assert.equal(
+    (await call(a, 'skills', { action: 'activate', skill: 'demo-skill' })).structuredContent.status,
+    'manual_only',
+  );
+  assert.equal(
+    (
+      await call(a, 'skills', {
+        action: 'activate',
+        skill: 'demo-skill',
+        explicit_user_request: true,
+      })
+    ).structuredContent.status,
+    'active',
+  );
   assert.notEqual(reboundConfig.pid, configA.pid);
   assert.equal(JSON.parse((await call(b, 'get_config')).content[0].text).pid, configB.pid);
   await call(a, 'write_file', { path: 'relative.txt', content: 'in the bound workspace' });

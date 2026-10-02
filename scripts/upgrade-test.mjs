@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile, readFile, symlink } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { previousInstall, migrate, ready, mark, needsBuild } from './upgrade.mjs';
+import { SkillStore } from '../dist/skill-store.js';
 
 await mkdir('logs', { recursive: true });
 const root = await mkdtemp(resolve('logs/upgrade-test-'));
@@ -24,7 +25,50 @@ await save(join(old, 'package.json'), { name: 'dwb-mcp-studio-core' });
 await save(join(next, 'package.json'), { name: 'dwb-mcp-studio-core' });
 assert.equal(await previousInstall(config, next), old);
 assert.equal(await previousInstall(config, old), null);
+const skillSource = join(root, 'skill-source');
+await mkdir(skillSource);
+await writeFile(
+  join(skillSource, 'SKILL.md'),
+  '---\nname: upgrade-skill\ndescription: Upgrade fixture\n---\nKeep these instructions.',
+);
+await writeFile(join(skillSource, 'guide.md'), 'Keep this companion.');
+const skillOptions = {
+  dbPath: join(root, 'user-data', 'runtime', 'skills.db'),
+  libraryRoot: join(root, 'user-data', 'skills'),
+};
+const beforeUpgrade = new SkillStore(skillOptions);
+const installed = await beforeUpgrade.installLocal({
+  sourceDir: skillSource,
+  defaultPolicy: 'manual',
+});
+await beforeUpgrade.setWorkspacePolicy('workspace-one', installed.id, 'ask');
+const consent = { sessionId: 'session-one', workspaceId: 'workspace-one', skillId: installed.id };
+const pending = beforeUpgrade.activate(consent);
+beforeUpgrade.close();
 assert.deepEqual(await migrate(config, next), ['desktop-commander']);
+const afterUpgrade = new SkillStore(skillOptions);
+try {
+  assert.equal(afterUpgrade.get(installed.id)?.installPath, installed.installPath);
+  assert.equal(afterUpgrade.get(installed.id)?.defaultPolicy, 'manual');
+  assert.equal(afterUpgrade.get(installed.id, consent.workspaceId)?.policy, 'ask');
+  assert.equal(afterUpgrade.pendingApprovals()[0].id, pending.approvalId);
+  assert.equal(
+    afterUpgrade.activate({ ...consent, approvalId: pending.approvalId, userConfirmed: true })
+      .status,
+    'active',
+  );
+  assert.equal(
+    await afterUpgrade.readActivatedSkillFile(
+      consent.sessionId,
+      consent.workspaceId,
+      installed.id,
+      'guide.md',
+    ),
+    'Keep this companion.',
+  );
+} finally {
+  afterUpgrade.close();
+}
 assert.equal(
   await readFile(
     join(

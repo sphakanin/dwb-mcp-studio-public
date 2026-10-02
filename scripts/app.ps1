@@ -4,6 +4,7 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System
 . (Join-Path $PSScriptRoot 'tunnel-common.ps1')
 . (Join-Path $PSScriptRoot 'preferences-common.ps1')
 . (Join-Path $PSScriptRoot 'preferences-ui.ps1')
+. (Join-Path $PSScriptRoot 'skills-ui.ps1')
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;

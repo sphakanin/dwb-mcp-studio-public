@@ -10,3 +10,7 @@
 *.png binary
 *.ico binary
 *.exe binary
+*.command text eol=lf
+*.swift text eol=lf
+*.sh text eol=lf
+*.service text eol=lf

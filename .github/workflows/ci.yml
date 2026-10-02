@@ -10,8 +10,12 @@ jobs:
           node-version: '22.16.0'
           cache: npm
       - run: npm ci
+      - run: npm run test:distribution
       - run: npm run format:check
       - run: npm test
+      - run: npm run test:skills-ui
+      - run: npm run test:platform
+      - run: npm run test:linux
       - name: Install external worker for integration tests
         shell: pwsh
         run: |

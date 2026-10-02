@@ -34,6 +34,31 @@ const env = {
 };
 let brokerPid: number | null = null;
 
+function verifyToolSurface(tools: { name: string }[]): string[] {
+  const names = new Set(tools.map((tool) => tool.name));
+  const required = [
+    'workspace',
+    'skills',
+    'dwb_bridge_status',
+    'dwb_broker_status',
+    'dwb_session_status',
+    'dwb_restart_worker',
+    'dwb_list_sessions',
+    'dwb_list_detached_sessions',
+    'dwb_resume_session',
+    'get_config',
+    'read_file',
+    'write_file',
+    'start_process',
+  ];
+  assert.equal(names.size, tools.length, 'Tool names must be unique');
+  assert.ok(
+    required.every((name) => names.has(name)),
+    'Core and upstream tool surface must be present',
+  );
+  return [...names].sort();
+}
+
 async function modern() {
   const transport = new ModernStdio({
     command: process.execPath,
@@ -57,13 +82,7 @@ async function modern() {
       throw new Error(`Expected modern era, got ${client.getProtocolEra()}`);
     if (client.getNegotiatedProtocolVersion() !== '2026-07-28')
       throw new Error(`Unexpected modern version: ${client.getNegotiatedProtocolVersion()}`);
-    const names = new Set(tools.tools.map((tool) => tool.name));
-    if (
-      tools.tools.length !== 34 ||
-      !['workspace', 'dwb_broker_status', 'dwb_session_status'].every((name) => names.has(name))
-    ) {
-      throw new Error('Modern tool surface mismatch');
-    }
+    const toolNames = verifyToolSurface(tools.tools);
     if (
       resources.resources.length !== 2 ||
       !String(preview.contents?.[0]?.mimeType).includes('mcp-app')
@@ -73,6 +92,7 @@ async function modern() {
       era: client.getProtocolEra(),
       version: client.getNegotiatedProtocolVersion(),
       tools: tools.tools.length,
+      toolNames,
       resources: resources.resources.length,
     };
   } finally {
@@ -93,19 +113,14 @@ async function legacy() {
   try {
     const tools = await client.listTools();
     const resources = await client.listResources();
-    const names = new Set(tools.tools.map((tool) => tool.name));
-    if (
-      tools.tools.length !== 34 ||
-      !['workspace', 'dwb_broker_status', 'dwb_session_status'].every((name) => names.has(name))
-    ) {
-      throw new Error('Legacy tool surface mismatch');
-    }
+    const toolNames = verifyToolSurface(tools.tools);
     if (resources.resources.length !== 2) throw new Error('Legacy resource proxy mismatch');
     const status: any = await client.callTool({ name: 'dwb_broker_status', arguments: {} });
     brokerPid = Number(status.structuredContent?.brokerPid ?? 0) || null;
     return {
       server: client.getServerVersion(),
       tools: tools.tools.length,
+      toolNames,
       resources: resources.resources.length,
     };
   } finally {
@@ -116,6 +131,11 @@ async function legacy() {
 try {
   const modernResult = await modern();
   const legacyResult = await legacy();
+  assert.deepEqual(
+    modernResult.toolNames,
+    legacyResult.toolNames,
+    'Both protocols must expose the same complete tool surface',
+  );
   console.log(
     'PROTOCOL_NEGOTIATION_PASS',
     JSON.stringify({ modern: modernResult, legacy: legacyResult }),
@@ -130,3 +150,4 @@ try {
   // Keep logs for diagnosis. Removing a directory while a worker is exiting on
   // Windows can mask the actual test failure with an EPERM cleanup error.
 }
+import assert from 'node:assert/strict';

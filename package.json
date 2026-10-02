@@ -1,6 +1,6 @@
 {
   "name": "dwb-mcp-studio-core",
-  "version": "0.1.0-beta.14",
+  "version": "0.1.0-beta.15",
   "private": true,
   "description": "Local multi-worker MCP broker for a separately installed Desktop Commander",
   "type": "module",
@@ -13,7 +13,9 @@
     "node": ">=22.16.0"
   },
   "os": [
-    "win32"
+    "win32",
+    "darwin",
+    "linux"
   ],
   "files": [
     "dist/*.js",
@@ -48,7 +50,18 @@
     "scripts/runtime-control.mjs",
     "scripts/runtime-upgrade.ps1",
     "scripts/preferences-common.ps1",
-    "scripts/preferences-ui.ps1"
+    "scripts/preferences-ui.ps1",
+    "scripts/skills-ui.ps1",
+    "scripts/skills-admin.mjs",
+    "scripts/macos/",
+    "Install DWB MCP Studio.command",
+    "scripts/linux/",
+    "scripts/posix-common.mjs",
+    "scripts/posix-install.mjs",
+    "install.sh",
+    "scripts/source-release.mjs",
+    "scripts/distribution-check.mjs",
+    "scripts/distribution-files.json"
   ],
   "scripts": {
     "build": "node node_modules/typescript/bin/tsc -p tsconfig.json",
@@ -56,7 +69,7 @@
     "start": "node scripts/start.mjs",
     "configure": "node scripts/configure.mjs",
     "doctor": "node scripts/doctor.mjs",
-    "test": "npm run typecheck && npm run build && tsx src/request-context-test.ts && tsx src/payload-guard-test.ts && tsx src/worker-circuit-test.ts && tsx src/session-lifecycle-test.ts && tsx src/workspace-binding-test.ts && tsx src/core-hardening-test.ts && node scripts/public-core-test.mjs && node scripts/dashboard-test.mjs",
+    "test": "npm run typecheck && npm run build && tsx src/request-context-test.ts && tsx src/payload-guard-test.ts && tsx src/worker-circuit-test.ts && tsx src/session-lifecycle-test.ts && tsx src/workspace-binding-test.ts && tsx src/skill-store-test.ts && tsx src/skill-sources-test.ts && tsx src/skill-broker-test.ts && tsx src/core-hardening-test.ts && node scripts/public-core-test.mjs && node scripts/dashboard-test.mjs",
     "test:integration": "node scripts/integration-test.mjs",
     "test:setup": "node scripts/test-powershell.mjs setup-test",
     "release": "npm run build:launcher && npm run build && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
@@ -68,7 +81,17 @@
     "build:launcher": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1",
     "test:shell": "node scripts/test-powershell.mjs shell-test",
     "test:runtime-upgrade": "node scripts/test-powershell.mjs runtime-upgrade-test",
-    "test:preferences": "node scripts/test-powershell.mjs preferences-test"
+    "test:preferences": "node scripts/test-powershell.mjs preferences-test",
+    "test:skills-ui": "npm run build && node scripts/test-powershell.mjs skills-ui-test",
+    "build:mac": "node scripts/macos/build-app.mjs --no-open",
+    "test:platform": "node scripts/macos/control-test.mjs && node scripts/macos/lease-test.mjs && tsx src/platform-test.ts",
+    "test:mac": "node scripts/macos/core-test.mjs",
+    "release:mac": "node scripts/macos/release.mjs",
+    "setup:linux": "node scripts/linux/cli.mjs setup",
+    "test:linux": "node scripts/linux/control-test.mjs",
+    "release:linux": "node scripts/linux/release.mjs",
+    "test:distribution": "node scripts/distribution-test.mjs",
+    "prepack": "node scripts/distribution-check.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

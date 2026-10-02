@@ -7,7 +7,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive=[IO.Compression.ZipFile]::OpenRead([IO.Path]::GetFullPath($Zip))
 try {
   foreach($entry in $archive.Entries){
-    if($entry.FullName -match '(^|/)(node_modules|external|runtime|logs|data|\.git)/|\.dpapi$|(^|/)(config|mcp-client)\.json$'){throw ('Private/runtime file in archive: '+$entry.FullName)}
+    if($entry.FullName -match '(^|/)(node_modules|external|runtime|logs|data|\.git|experiments|brag-output[^/]*)/|(^|/)\.env($|\.)|\.(dpapi|key|pem|pfx|p12|safetensors|ckpt|pt|pth|onnx|ipynb|jsonl|mp4|mp3|wav)$|RECORDING-SKILLS-TH\.md$|(^|/)(config|mcp-client)\.json$'){throw ('Private/unrelated file in archive: '+$entry.FullName)}
     if($entry.FullName -match '\.exe$' -and $entry.FullName -ne 'DWB MCP Studio.exe'){throw ('Foreign executable in archive: '+$entry.FullName)}
   }
 }finally{$archive.Dispose()}

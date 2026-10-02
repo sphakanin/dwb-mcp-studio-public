@@ -53,6 +53,60 @@ export const brokerTools = [
     annotations: { destructiveHint: false, idempotentHint: false },
   },
   {
+    name: 'skills',
+    description:
+      'Manage and use DWB Studio Agent Skills. Call action=list for installed skills or catalog for curated recommendations. AUTO skills may be activated when useful. ASK skills require a separate user approval before instructions are returned. MANUAL skills may be activated only when the user explicitly asks for that skill or capability. Local installs are limited to the bound workspace. Remote GitHub/recommended installs are allowed only after an explicit user request.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          description:
+            'Skill operation: list, catalog, install_local, install_github, install_recommended, set_default_policy, set_workspace_policy, clear_workspace_policy, activate, read_file.',
+        },
+        skill: { type: 'string', description: 'Installed skill ID/name.' },
+        path: { type: 'string', description: 'Local skill directory for install_local.' },
+        github_url: {
+          type: 'string',
+          description:
+            'HTTPS GitHub repository or /tree/<ref>/<skill-path> URL for install_github.',
+        },
+        policy: { type: 'string', description: 'auto, ask, or manual.' },
+        approval_id: { type: 'string', description: 'Approval request returned by activate.' },
+        relative_path: {
+          type: 'string',
+          description:
+            'File path inside an active skill, including SKILL.md. Read successive pages using nextOffset until null.',
+        },
+        offset: {
+          type: 'integer',
+          minimum: 0,
+          description:
+            'UTF-8 byte offset for read_file; defaults to 0. Use the returned nextOffset.',
+        },
+        length: {
+          type: 'integer',
+          minimum: 4,
+          maximum: 65536,
+          description:
+            'Maximum bytes per read_file page; defaults to 8192. Reduce if the payload guard limits a response.',
+        },
+        explicit_user_request: {
+          type: 'boolean',
+          description:
+            'True only when the current user request explicitly asks for this skill/capability or explicitly requests a remote Skill install.',
+        },
+        user_confirmed: {
+          type: 'boolean',
+          description:
+            'For ASK policy only: true only after this approval_id was returned and the user explicitly confirmed using the Skill in a later user turn.',
+        },
+      },
+      required: ['action'],
+    },
+    annotations: { destructiveHint: false, idempotentHint: false },
+  },
+  {
     name: 'workspace',
     description:
       'When the user gives a working directory, immediately call action=bind with path=<absolute directory>. This registers or reuses that exact folder and binds it to this chat in one step, without asking the user to create a workspace separately. The worker starts in the bound directory; an idle worker is replaced on directory changes. Other chats keep their bindings. This does not expand filesystem policy. Do not infer the workspace from arbitrary file paths.',

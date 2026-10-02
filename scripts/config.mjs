@@ -18,7 +18,7 @@ export async function validateConfig(config) {
   const workspace = process.env.DWB_WORKSPACE || config.workspace;
   if (!workspace || !isAbsolute(workspace) || !(await stat(workspace)).isDirectory())
     throw new Error(
-      'Choose an existing absolute workspace directory with DWB MCP Studio.exe or DWB_WORKSPACE.',
+      'Choose an existing absolute workspace directory using Setup, scripts/configure.mjs, or DWB_WORKSPACE.',
     );
   const workerCap = Number(process.env.DWB_WORKER_CAP || config.workerCap || 4);
   if (!Number.isInteger(workerCap) || workerCap < 1 || workerCap > 64)

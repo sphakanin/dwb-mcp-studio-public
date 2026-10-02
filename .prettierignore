@@ -6,3 +6,9 @@ runtime/
 releases/
 package-lock.json
 external/
+*.app/
+*.app.previous-*/
+experiments/
+brag-output*/
+.env*
+engineering/

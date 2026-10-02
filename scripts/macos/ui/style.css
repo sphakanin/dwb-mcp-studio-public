@@ -1,0 +1,260 @@
+:root {
+  color-scheme: light;
+  font:
+    14px -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #24352e;
+  background: #f3f5f1;
+}
+.metrics {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.metrics div {
+  padding: 10px 16px;
+  border: 1px solid #dce4dc;
+  border-radius: 9px;
+  background: #fafcf8;
+  font-size: 12px;
+}
+.events {
+  padding-left: 18px;
+  font-size: 12px;
+  color: #617167;
+  line-height: 1.7;
+  max-height: 240px;
+  overflow: auto;
+}
+.events li {
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 32px;
+  border-bottom: 1px solid #dce4dc;
+  background: #fff;
+}
+.brand {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+.brand span {
+  font-size: 11px;
+  letter-spacing: 2px;
+  margin-left: 10px;
+  color: #63766b;
+}
+.badge {
+  border: 1px solid #d4ded6;
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+main {
+  max-width: 1120px;
+  margin: auto;
+  padding: 28px 32px;
+}
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin: 6px 0 24px;
+}
+.eyebrow {
+  letter-spacing: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #527b61;
+}
+h1 {
+  font-size: 28px;
+  margin: 8px 0;
+}
+h2 {
+  font-size: 17px;
+  margin: 0 0 20px;
+}
+p {
+  line-height: 1.7;
+  color: #617167;
+}
+.connection {
+  white-space: nowrap;
+  background: #e5eae4;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.connection.ready {
+  background: #d7ebdc;
+  color: #205e38;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.card {
+  background: #fff;
+  border: 1px solid #dfe5dc;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 3px 10px #213d2603;
+}
+label:not(.check) {
+  display: block;
+  margin: 14px 0 7px;
+  font-weight: 600;
+  font-size: 12px;
+}
+input:not([type='checkbox']) {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cad5cc;
+  background: #fcfdfb;
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+}
+input:focus {
+  outline: 2px solid #638c71;
+  outline-offset: 2px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  line-height: 1.5;
+}
+.check input {
+  accent-color: #285e40;
+  width: 16px;
+  height: 16px;
+}
+.actions,
+.folder {
+  display: flex;
+  gap: 10px;
+}
+.folder input {
+  min-width: 0;
+}
+button {
+  cursor: pointer;
+  background: #285e40;
+  color: white;
+  border: 1px solid transparent;
+  padding: 11px 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+}
+button:hover {
+  filter: brightness(0.94);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.secondary {
+  background: #f1f5ef;
+  border-color: #d6e0d6;
+  color: #325340;
+}
+.link {
+  background: none;
+  border: 0;
+  color: #52705a;
+  padding: 8px 0;
+  font-size: 12px;
+}
+.hint {
+  font-size: 12px;
+  color: #718075;
+  line-height: 1.7;
+}
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.table-wrap {
+  overflow: auto;
+}
+table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+th {
+  font-weight: 600;
+  color: #6b7d6e;
+  background: #f6f8f3;
+}
+td,
+th {
+  padding: 12px;
+  border-bottom: 1px solid #edf0ea;
+}
+td {
+  max-width: 300px;
+  overflow-wrap: anywhere;
+}
+.preferences {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #6c7d70;
+  font-size: 11px;
+}
+#notice:not(:empty) {
+  padding: 12px 16px;
+  background: #fff1d9;
+  border: 1px solid #eddbb9;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  main {
+    padding: 20px;
+  }
+  .grid,
+  .preferences {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  header {
+    padding: 18px 20px;
+  }
+}

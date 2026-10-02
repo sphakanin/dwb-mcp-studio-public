@@ -1,4 +1,4 @@
-import { tmpdir, userInfo } from 'node:os';
+import { userInfo } from 'node:os';
 import { createHash } from 'node:crypto';
 import { dataDir } from './paths.js';
 import { resolve } from 'node:path';
@@ -7,10 +7,13 @@ export const BROKER_PROTOCOL_VERSION = 1;
 
 export function brokerEndpoint(): string {
   if (process.env.DWB_BROKER_PIPE) return process.env.DWB_BROKER_PIPE;
-  const identity = `${userInfo().username}:${dataDir().toLowerCase()}`;
+  const directory = dataDir();
+  const identity = `${userInfo().username}:${process.platform === 'win32' ? directory.toLowerCase() : directory}`;
   const id = createHash('sha256').update(identity).digest('hex').slice(0, 20);
   if (process.platform === 'win32') return `\\\\.\\pipe\\dwb-mcp-studio-core-v1-${id}`;
-  return resolve(tmpdir(), `dwb-mcp-studio-core-${id}.sock`);
+  // A GUI app and a terminal can inherit different TMPDIR values. Use one short,
+  // per-user location so both transports still find the same singleton broker.
+  return resolve('/tmp', `dwb-mcp-${userInfo().uid}`, `dwb-mcp-studio-core-${id}.sock`);
 }
 
 export type BrokerLogicalContext = {

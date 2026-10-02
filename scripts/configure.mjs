@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { configPath, readConfig, validateConfig } from './config.mjs';
+import { defaultWorkerShell } from '../dist/paths.js';
 
 const { values } = parseArgs({
   options: {
@@ -34,7 +35,7 @@ try {
   const basePolicy = previous.basePolicy || resolve(root, 'base-policy.json');
   const policy = {
     allowedDirectories: [config.workspace],
-    defaultShell: 'powershell.exe',
+    defaultShell: defaultWorkerShell(),
     telemetryEnabled: false,
   };
   try {
@@ -78,9 +79,18 @@ try {
       2,
     ) + '\n',
   );
-  console.log(
-    `Saved configuration: ${configPath()}\nMCP client configuration: ${clientConfig}\nRun node scripts/doctor.mjs to check the setup.\nConnect your MCP client to the generated command. Use DWB MCP Studio.exe to open the app.`,
-  );
+  if (process.platform === 'darwin') {
+    console.log(
+      `Saved configuration: ${configPath()}\nMCP client configuration: ${clientConfig}\nRun node scripts/macos/preview.mjs doctor to check the setup.`,
+    );
+  } else if (process.platform === 'linux')
+    console.log(
+      `Saved configuration: ${configPath()}\nMCP client configuration: ${clientConfig}\nRun node scripts/doctor.mjs to check the setup. See docs/UBUNTU-TH.md for VPS and systemd setup.`,
+    );
+  else
+    console.log(
+      `Saved configuration: ${configPath()}\nMCP client configuration: ${clientConfig}\nRun node scripts/doctor.mjs to check the setup.\nConnect your MCP client to the generated command. Use DWB MCP Studio.exe to open the app.`,
+    );
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

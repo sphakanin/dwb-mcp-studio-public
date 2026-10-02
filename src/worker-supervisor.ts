@@ -5,6 +5,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { externalWorker } from './external-worker.js';
 import { EventLog } from './event-log.js';
+import { persistBaseDcConfigValue } from './dc-config-policy.js';
 import { PayloadGuard } from './payload-guard.js';
 import { prepareWorkerHome } from './worker-home.js';
 
@@ -14,6 +15,28 @@ const bootstrapEntry = resolve(here, 'worker-bootstrap.js');
 function envInt(name: string, fallback: number): number {
   const value = Number(process.env[name]);
   return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
+}
+
+export function searchListHasActiveWork(text: string): boolean {
+  const output = text.trim();
+  if (!output || /No active searches/i.test(output)) return false;
+
+  const statuses = [...output.matchAll(/Status:\s*[^\r\nA-Za-z]*([A-Za-z_-]+)/gi)].map((match) =>
+    match[1].toUpperCase(),
+  );
+  if (!statuses.length) return true;
+
+  const terminal = new Set([
+    'COMPLETED',
+    'COMPLETE',
+    'STOPPED',
+    'TERMINATED',
+    'CANCELLED',
+    'CANCELED',
+    'FAILED',
+    'ERROR',
+  ]);
+  return statuses.some((status) => !terminal.has(status));
 }
 
 class WorkerCircuitOpenError extends Error {
@@ -350,12 +373,38 @@ export class WorkerSupervisor {
       // The broker owns the caller deadline. Do not let the SDK's default
       // 60-second timer discard a still-running result and release its locks.
       const result = await client.callTool(params, undefined, { timeout: 2_147_483_647 });
+      const args = (params.arguments ?? {}) as Record<string, unknown>;
+      if (!result.isError && params.name === 'set_config_value' && typeof args.key === 'string') {
+        try {
+          await persistBaseDcConfigValue(args.key, args.value);
+        } catch (error) {
+          const warning =
+            'DWB_CONFIG_PERSIST_FAILED: the live worker changed, but the base policy could not be saved. ' +
+            'A worker restart may restore the previous value. ' +
+            String(error);
+          const mutable = result as any;
+          mutable.isError = true;
+          mutable.content = [
+            ...(Array.isArray(mutable.content) ? mutable.content : []),
+            { type: 'text', text: warning },
+          ];
+          await this.log
+            .write({
+              type: 'config_persist_failed',
+              workerPid: this.transport?.pid ?? null,
+              tool: params.name,
+              ok: false,
+              sessionId: this.context.sessionId,
+              requestId: meta.requestId,
+              workerId: this.context.workerId,
+              workspaceKey: this.context.workspaceKey,
+              details: { key: args.key, error: String(error) },
+            })
+            .catch(() => {});
+        }
+      }
       const durationMs = Math.round(performance.now() - started);
-      const application = await this.payloadGuard.apply(
-        params.name,
-        (params.arguments ?? {}) as Record<string, unknown>,
-        result,
-      );
+      const application = await this.payloadGuard.apply(params.name, args, result);
       this.lastHealthyAt = new Date().toISOString();
       await this.log
         .write({
@@ -426,7 +475,7 @@ export class WorkerSupervisor {
       const searches = await client.callTool({ name: 'list_searches', arguments: {} }, undefined, {
         timeout: 3_000,
       });
-      if (!/No active searches/i.test(textOf(searches))) return true;
+      if (searchListHasActiveWork(textOf(searches))) return true;
     } catch {
       return true;
     }

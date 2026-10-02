@@ -96,6 +96,11 @@ export class WorkspaceStore {
   }
 
   private candidateRows(ref: string): any[] {
+    if (process.platform !== 'win32' && isAbsolute(ref)) {
+      return this.db.query<any>('SELECT * FROM workspaces WHERE root_path=? COLLATE BINARY', [
+        physicalPath(ref),
+      ]);
+    }
     const needle = key(ref);
     const exact = this.db.query<any>(
       [
@@ -166,14 +171,16 @@ export class WorkspaceStore {
     const rawPath = text(args.path) || text(args.root) || text(args.workspace);
     if (!rawPath) throw new Error('workspace.register requires path/root/workspace.');
     if (!isAbsolute(rawPath)) throw new Error('Workspace directory must be an absolute path.');
-    const root = resolve(rawPath);
+    const root = process.platform === 'win32' ? resolve(rawPath) : physicalPath(rawPath);
     const info = await stat(root).catch(() => null);
     if (!info?.isDirectory())
       throw new Error(`Workspace path is not an existing directory: ${root}`);
     return this.db.transaction(() => {
       const now = new Date().toISOString();
       const existing = this.db.one<any>(
-        'SELECT * FROM workspaces WHERE lower(root_path)=lower(?)',
+        process.platform === 'win32'
+          ? 'SELECT * FROM workspaces WHERE lower(root_path)=lower(?)'
+          : 'SELECT * FROM workspaces WHERE root_path=? COLLATE BINARY',
         [root],
       );
       const name = text(args.name) || (existing ? String(existing.name) : basename(root));

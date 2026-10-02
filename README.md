@@ -1,8 +1,16 @@
 # DWB MCP Studio Core
 
-Windows Beta · 0.1.0-beta.14
+Windows Beta · 0.1.0-beta.15
+
+สำหรับ **Ubuntu / remote VPS**: เพิ่มตัวติดตั้งผ่าน terminal พร้อม Bash, OpenAI Tunnel และ user systemd service แล้ว ดู [คู่มือติดตั้ง Ubuntu](docs/UBUNTU-TH.md) ใช้ `bash install.sh --workspace /absolute/folder` หลังติดตั้ง Node.js 22.16+, curl และ unzip รุ่น Ubuntu นี้ยังเป็น candidate ระหว่างตรวจแพลตฟอร์มก่อนแจก
+
+สำหรับ macOS: เพิ่ม [แอป Setup/Dashboard, Tunnel, Keychain และ menu bar](docs/MACOS-PREVIEW-TH.md) ใน source แล้ว รุ่นนี้ยังต้องทดสอบบน Mac จริงก่อนแจกทั่วไป ดู [ผลการตรวจ Windows และรายการตรวจ Mac](docs/MACOS-PREVIEW-VALIDATION.md)
 
 ## ดาวน์โหลดและเริ่มใช้
+
+- [Windows beta.15 ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.15/dwb-mcp-studio-core-0.1.0-beta.15-windows.zip) — แตกทั้งชุดแล้วเปิด DWB MCP Studio.exe
+- [Ubuntu beta.15 source ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.15/dwb-mcp-studio-0.1.0-beta.15-ubuntu-source.zip) — รุ่นทดลองสำหรับ terminal/VPS ยังไม่มี DWB Dashboard
+- [หน้า Releases และไฟล์ SHA-256](https://github.com/sphakanin/dwb-mcp-studio-public/releases/tag/v0.1.0-beta.15)
 
 - **ใช้ Git:** clone repository นี้ แล้วเปิด `DWB MCP Studio.exe` ในโฟลเดอร์ที่ clone มา
 - **ดาวน์โหลด source ZIP:** แตกไฟล์ แล้วเปิด `DWB MCP Studio.exe` ได้เหมือนกัน
@@ -17,6 +25,18 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 ตัวกลาง MCP สำหรับใช้ **Desktop Commander หลาย worker** พร้อมระบบกู้การเชื่อมต่อและป้องกันการเขียนไฟล์ทับข้าม session
 
 ใช้ Setup เตรียมเครื่องและการเชื่อมต่อ ตั้งชื่อ workspace เพื่อเรียกใช้ในแชทถัดไป และดูสถานะ worker กับงานที่กำลังทำผ่าน Dashboard
+
+### Agent Skills ใน beta.15
+
+Source ปัจจุบันเพิ่มหน้า **Agent Skills** ใน Dashboard สำหรับติดตั้ง Skill ครั้งเดียวจาก **Recommended Skills, GitHub หรือ local folder** แล้วตั้งพฤติกรรมแยกแต่ละ Workspace เป็น **AUTO**, **ASK** หรือ **MANUAL** ได้
+
+- AUTO — Agent ใช้เองเมื่อเหมาะกับงาน
+- ASK — Agent ถามผู้ใช้ในแชทก่อน และรอคำตอบยืนยันใน turn ถัดไป
+- MANUAL — ใช้เมื่อผู้ใช้เรียก Skill/capability นั้นโดยตรง
+- Workspace แต่ละตัว override ค่า default ของ Skill ได้
+- ASK ที่รออยู่สามารถอนุมัติ/ปฏิเสธจากหน้า Studio ได้เช่นกัน
+
+อ่าน [คู่มือ Agent Skills](docs/SKILLS-TH.md) สำหรับ flow, storage และขอบเขตความปลอดภัย หน้า Studio มี **GoLive** (ASK) สำหรับพาแอปจาก local ไปสู่ deployment และ **BRAG Slim** (MANUAL) สำหรับสร้าง launch video, poster และ share copy จากงานที่ทำเสร็จแล้ว การติดตั้ง GitHub แบบระบุ skill path ดาวน์โหลดเฉพาะ package นั้น และ remote install จากแชทต้องเกิดจากคำสั่งของผู้ใช้โดยตรง
 
 ### ปรับปรุงใน beta.14
 
@@ -190,10 +210,11 @@ path ในตัวอย่างต้องเปลี่ยนเป็น
 - ต่อ session ที่ detach กลับมาได้ภายในช่วงเก็บรักษา
 - File read/write locks และ stale-write protection สำหรับ file tools ที่รองรับ
 - Workspace binding เพื่อกัน file mutation ข้าม root ที่ผูกไว้
+- Agent Skills registry พร้อม global default + per-workspace AUTO / ASK / MANUAL policy
 - Payload guard เริ่มต้น 256 KiB พร้อมผลตอบกลับที่แจ้งว่าข้อมูลใหญ่เกิน
 - Proxy tools และ MCP resources จาก Desktop Commander ที่ผู้ใช้ติดตั้งเอง
 
-เครื่องมือ DWB ที่เพิ่มจาก upstream มี 8 ตัว: `dwb_bridge_status`, `dwb_broker_status`, `dwb_session_status`, `dwb_restart_worker`, `dwb_list_sessions`, `dwb_list_detached_sessions`, `dwb_resume_session`, `workspace`
+เครื่องมือ DWB ที่เพิ่มจาก upstream มี 9 ตัว: `dwb_bridge_status`, `dwb_broker_status`, `dwb_session_status`, `dwb_restart_worker`, `dwb_list_sessions`, `dwb_list_detached_sessions`, `dwb_resume_session`, `skills`, `workspace`
 
 เมื่อผู้ใช้ระบุ working directory ให้ AI เรียก `workspace(action="bind", path="<absolute path>")` ทันที ก่อนทำงานกับไฟล์หรือ shell โดยคำสั่งเดียวจะลงทะเบียนหรือใช้ workspace ที่ตรงกับ path นั้น แล้วผูกกับแชทปัจจุบัน ไม่ต้องให้ผู้ใช้สั่ง register แยก การ bind เปลี่ยนโฟลเดอร์เริ่มต้นของ worker ในแชทนั้น แต่ไม่ขยายสิทธิ์ `allowedDirectories` ของ Desktop Commander ใช้ absolute path กับ file tools ต่อไป
 

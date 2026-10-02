@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>DWB MCP Studio</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div class="brand">DWB <span>MCP STUDIO</span></div>
+      <span class="badge">macOS · Beta</span>
+    </header>
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">YOUR LOCAL WORKSPACE</p>
+          <h1>พร้อมทำงาน บนเครื่องของคุณ</h1>
+          <p>ตั้งค่า workspace เชื่อมต่อ MCP และดูสถานะงานได้จากที่เดียว</p>
+        </div>
+        <div id="connection" class="connection" role="status">กำลังตรวจสถานะ…</div>
+      </section>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <div id="metrics" class="metrics" aria-label="สรุปสถานะงาน"></div>
+      <div class="grid">
+        <section class="card">
+          <h2>การเชื่อมต่อ</h2>
+          <form id="tunnel-form">
+            <label for="tunnel-id">Tunnel ID</label
+            ><input id="tunnel-id" placeholder="tunnel_…" required autocomplete="off" />
+            <label for="api-key">API key</label
+            ><input
+              id="api-key"
+              type="password"
+              placeholder="กรอกครั้งแรก หรือใช้ key ที่จำไว้"
+              autocomplete="off"
+            />
+            <label class="check"
+              ><input id="remember" type="checkbox" /> จำ key ใน macOS Keychain</label
+            >
+            <div class="actions">
+              <button id="start" type="submit">Start MCP</button
+              ><button id="stop" type="button" class="secondary">Stop MCP</button>
+            </div>
+          </form>
+          <button id="forget" class="link">ลืม API key ที่บันทึกไว้</button>
+          <p class="hint">
+            Ready หมายถึง tunnel พร้อม ให้เรียกเครื่องมือจากแชทเพื่อยืนยันการเชื่อมต่อครบเส้นทาง
+          </p>
+        </section>
+        <section class="card">
+          <h2>ตั้งค่าเครื่อง</h2>
+          <form id="setup-form">
+            <label for="workspace">โฟลเดอร์งาน</label>
+            <div class="folder">
+              <input id="workspace" placeholder="/Users/you/Projects" required /><button
+                id="choose"
+                type="button"
+                class="secondary"
+              >
+                เลือก…
+              </button>
+            </div>
+            <label for="worker-cap">จำนวน worker สูงสุด</label
+            ><input id="worker-cap" type="number" min="1" max="64" value="4" required />
+            <p class="hint">
+              ติดตั้ง Desktop Commander และ tunnel-client สำหรับ Mac นี้ พร้อมตรวจ checksum
+              ก่อนใช้งาน
+            </p>
+            <button id="setup" type="submit" class="secondary">ติดตั้งและบันทึก</button>
+          </form>
+        </section>
+      </div>
+      <section class="card">
+        <div class="section-title">
+          <h2>งานที่กำลังทำ</h2>
+          <span id="broker" class="hint">Broker: —</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Session</th>
+                <th>Workspace</th>
+                <th>สถานะ</th>
+                <th>Worker</th>
+              </tr>
+            </thead>
+            <tbody id="sessions">
+              <tr>
+                <td colspan="4">ยังไม่มี session</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <h2>การเปิดและปิดแอป</h2>
+        <form id="preferences-form">
+          <div class="preferences">
+            <label class="check"
+              ><input id="startAtLogin" type="checkbox" /> เปิดพร้อมเข้าสู่ระบบครั้งถัดไป</label
+            >
+            <label class="check"
+              ><input id="connectOnStartup" type="checkbox" /> Start MCP อัตโนมัติ</label
+            >
+            <label class="check"
+              ><input id="closeToMenuBar" type="checkbox" checked /> ปุ่มปิดหน้าต่างซ่อนไปที่ menu
+              bar</label
+            >
+            <label class="check"
+              ><input id="minimizeToMenuBar" type="checkbox" /> ปุ่มย่อซ่อนไปที่ menu bar</label
+            >
+          </div>
+          <button type="submit" class="secondary">บันทึกตัวเลือก</button>
+        </form>
+      </section>
+      <section class="card">
+        <h2>เหตุการณ์ล่าสุด</h2>
+        <ul id="events" class="events"></ul>
+      </section>
+      <footer>
+        <span id="machine"></span><button id="quit" class="link">หยุด MCP และออกจากแอป</button>
+      </footer>
+    </main>
+  </body>
+</html>

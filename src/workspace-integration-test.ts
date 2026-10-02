@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { writeTestBaseConfig } from './test-policy.js';
+import { defaultWorkerShell } from './paths.js';
 
 await mkdir(resolve('logs'), { recursive: true });
 const root = await mkdtemp(resolve('logs', 'workspace-real-'));
@@ -27,8 +28,8 @@ try {
   await first.callTool('workspace', { action: 'bind', path: a });
   await second.callTool('workspace', { action: 'bind', path: b });
   const result = await first.callTool('start_process', {
-    command: '[Console]::WriteLine((Get-Location).Path)',
-    shell: 'powershell.exe',
+    command: process.platform === 'win32' ? '[Console]::WriteLine((Get-Location).Path)' : 'pwd',
+    shell: defaultWorkerShell(),
     timeout_ms: 3000,
   });
   assert.notEqual(result.isError, true, JSON.stringify(result));

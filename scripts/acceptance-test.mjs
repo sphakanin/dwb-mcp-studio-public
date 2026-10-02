@@ -50,6 +50,9 @@ try {
   const a = await connect(),
     b = await connect();
   brokerPid = (await call(a, 'a', 'dwb_broker_status')).structuredContent.brokerPid;
+  const initialToolNames = (await b.listTools({ _meta: meta('b') })).tools
+    .map((tool) => tool.name)
+    .sort();
   await call(a, 'a', 'workspace', {
     action: 'bind',
     path: aDir,
@@ -110,7 +113,7 @@ try {
     brokerPid = (await call(c, 'c', 'dwb_broker_status')).structuredContent.brokerPid;
     assert.equal(recovered.sessionId, beforeA.sessionId);
     assert.equal(recovered.workingDirectory, aDir);
-    assert.equal(tools.tools.length, 34);
+    assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), initialToolNames);
   }
   assert.equal((await status(b, 'b')).workingDirectory, bDir);
   console.log(

@@ -41,6 +41,11 @@ function statusFrom(result: Awaited<ReturnType<Client['callTool']>>) {
   };
 }
 
+function allowedDirectories(result: Awaited<ReturnType<Client['callTool']>>): string[] {
+  const structured = result.structuredContent as any;
+  return structured?.config?.allowedDirectories ?? [];
+}
+
 async function main() {
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -70,6 +75,17 @@ async function main() {
   const configBefore = await client.callTool({ name: 'get_config', arguments: {} });
   if (configBefore.isError) throw new Error('get_config failed before recovery test');
 
+  const persistedDir = resolve(testHome, 'persisted-allowed');
+  mkdirSync(persistedDir, { recursive: true });
+  const setConfig = await client.callTool({
+    name: 'set_config_value',
+    arguments: { key: 'allowedDirectories', value: [root, persistedDir] },
+  });
+  if (setConfig.isError) throw new Error('set_config_value failed before recovery test');
+  const liveConfig = await client.callTool({ name: 'get_config', arguments: {} });
+  if (liveConfig.isError || !allowedDirectories(liveConfig).includes(persistedDir))
+    throw new Error('set_config_value did not update the live worker config');
+
   console.log('KILL_WORKER', firstStatus.workerPid);
   process.kill(firstStatus.workerPid);
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 300));
@@ -95,6 +111,8 @@ async function main() {
 
   const configAfter = await client.callTool({ name: 'get_config', arguments: {} });
   if (configAfter.isError) throw new Error('get_config failed after recovery test');
+  if (!allowedDirectories(configAfter).includes(persistedDir))
+    throw new Error('set_config_value did not persist across worker recovery');
 
   console.log(
     'SMOKE_PASS',

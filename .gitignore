@@ -6,7 +6,6 @@ runtime/
 releases/
 .env
 .env.*
-!.env.example
 *.dpapi
 *.pem
 *.key
@@ -22,3 +21,10 @@ external/
 /base-policy.json
 /tunnel/
 /setup.lock
+/*.app/
+/*.app.previous-*/
+# Other projects and generated presentation assets belong outside this repository.
+/experiments/
+/brag-output*/
+# Internal development evidence stays local.
+/engineering/

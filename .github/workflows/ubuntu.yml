@@ -1,0 +1,48 @@
+name: Ubuntu candidate
+on: [push, pull_request]
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - run: bash -n install.sh
+      - run: npm ci
+      - run: npm run test:distribution
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run test:platform
+      - run: npm run test:linux
+      - name: Install isolated Ubuntu runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/dwb-workspace"
+          echo "DWB_DATA_DIR=$RUNNER_TEMP/dwb-ubuntu-data" >> "$GITHUB_ENV"
+          DWB_DATA_DIR="$RUNNER_TEMP/dwb-ubuntu-data" bash install.sh --workspace "$RUNNER_TEMP/dwb-workspace"
+          echo "DWB_WORKER_ENTRY=$GITHUB_WORKSPACE/external/linux/desktop-commander/node_modules/@wonderwhy-er/desktop-commander/dist/index.js" >> "$GITHUB_ENV"
+      - run: node scripts/linux/cli.mjs doctor
+      - run: npm run test:integration
+      - name: Verify local tunnel HTTP transport without an account
+        run: |
+          DWB_CONFIG_FILE="$DWB_DATA_DIR/config.json" node scripts/tunnel-acceptance.mjs --tunnel-client "$GITHUB_WORKSPACE/external/linux/tunnel-client/tunnel-client"
+      - name: Prepare user systemd manager
+        run: |
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - run: node scripts/linux/systemd-test.mjs
+      - run: npm run release:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-source-${{ matrix.os }}
+          path: |
+            releases/*-ubuntu-source.zip
+            releases/*-ubuntu-source.zip.sha256

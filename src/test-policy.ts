@@ -1,12 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { defaultWorkerShell } from './paths.js';
 
 export async function writeTestBaseConfig(dir: string): Promise<string> {
   await mkdir(dir, { recursive: true });
   const path = resolve(dir, 'base-dc-config.json');
   const config = {
     blockedCommands: ['shutdown', 'reboot', 'format', 'diskpart'],
-    defaultShell: 'powershell.exe',
+    defaultShell: defaultWorkerShell(),
     allowedDirectories: [],
     telemetryEnabled: false,
     fileWriteLineLimit: 50,

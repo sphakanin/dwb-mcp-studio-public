@@ -1,6 +1,6 @@
 import { createConnection } from 'node:net';
 import { brokerEndpoint } from '../dist/broker-protocol.js';
-import { runtimeIdentity } from '../dist/runtime-identity.js';
+import { runtimeIdentity, sameRuntimePath } from '../dist/runtime-identity.js';
 
 const method = process.argv[2] === 'prepare' ? 'prepare_upgrade' : 'ping';
 const result = await new Promise((resolve) => {
@@ -31,7 +31,7 @@ const result = await new Promise((resolve) => {
         broker,
         matches:
           broker.runtime?.version === runtimeIdentity.version &&
-          broker.runtime?.appRoot?.toLowerCase() === runtimeIdentity.appRoot.toLowerCase(),
+          sameRuntimePath(broker.runtime?.appRoot, runtimeIdentity.appRoot),
       });
     } catch {
       finish({ state: 'unresponsive' });

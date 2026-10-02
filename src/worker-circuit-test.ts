@@ -3,7 +3,22 @@ import { mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { EventLog } from './event-log.js';
 import { writeTestBaseConfig } from './test-policy.js';
-import { WorkerSupervisor } from './worker-supervisor.js';
+import { searchListHasActiveWork, WorkerSupervisor } from './worker-supervisor.js';
+
+assert.equal(searchListHasActiveWork('No active searches.'), false);
+assert.equal(
+  searchListHasActiveWork(
+    'Active Searches (2):\n\nSession: search_1\n  Status: ✅ COMPLETED\n\nSession: search_2\n  Status: TERMINATED',
+  ),
+  false,
+);
+assert.equal(
+  searchListHasActiveWork(
+    'Active Searches (2):\n\nSession: search_1\n  Status: ✅ COMPLETED\n\nSession: search_2\n  Status: 🔄 RUNNING',
+  ),
+  true,
+);
+assert.equal(searchListHasActiveWork('Active Searches (1):\n\nSession: search_unknown'), true);
 
 const root = resolve('logs', 'worker-circuit');
 await rm(root, { recursive: true, force: true });

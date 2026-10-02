@@ -1,6 +1,6 @@
 import { createConnection } from 'node:net';
 import { open, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export async function inspectBroker(endpoint) {
@@ -108,7 +108,7 @@ export async function recentEvents(path) {
 async function main() {
   try {
     const { dataDir } = await import('../dist/paths.js');
-    const { runtimeIdentity } = await import('../dist/runtime-identity.js');
+    const { runtimeIdentity, sameRuntimePath } = await import('../dist/runtime-identity.js');
     const { brokerEndpoint } = await import('../dist/broker-protocol.js');
     let config = {};
     try {
@@ -125,9 +125,8 @@ async function main() {
       const tunnelRoot = resolve(dataDir(), 'tunnel');
       const state = JSON.parse(await readFile(resolve(tunnelRoot, 'process.json'), 'utf8'));
       const logPath = resolve(state.logFile);
-      if (
-        logPath.toLowerCase().startsWith((tunnelRoot + '/').replaceAll('/', '\\').toLowerCase())
-      ) {
+      const inside = relative(tunnelRoot, logPath);
+      if (inside && inside !== '..' && !inside.startsWith('..' + sep) && !isAbsolute(inside)) {
         for (const line of await tail(logPath)) {
           try {
             const row = JSON.parse(line);
@@ -150,8 +149,7 @@ async function main() {
         runtimeMismatch:
           runtime.state === 'running' &&
           (runtime.broker?.runtime?.version !== runtimeIdentity.version ||
-            runtime.broker?.runtime?.appRoot?.toLowerCase() !==
-              runtimeIdentity.appRoot.toLowerCase()),
+            !sameRuntimePath(runtime.broker?.runtime?.appRoot, runtimeIdentity.appRoot)),
         uiVersion: runtimeIdentity.version,
         events: events.slice(0, 30),
         initialWorkspace: config.workspace ?? '',
