@@ -26,6 +26,10 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 
 ใช้ Setup เตรียมเครื่องและการเชื่อมต่อ ตั้งชื่อ workspace เพื่อเรียกใช้ในแชทถัดไป และดูสถานะ worker กับงานที่กำลังทำผ่าน Dashboard
 
+### DWB Companion Panel (ทดลองใน feature branch)
+
+กำลังพัฒนา ChatGPT **Conversation Panel** ด้วย MCP Apps + MCP Extensions ใช้ `thread` entrypoint เพื่อแสดง Workspace, Worker/Session และ Agent Skills จาก DWB MCP Studio โดยตรงใน ChatGPT พร้อมปุ่มส่งคำขอวิเคราะห์ไปยังบทสนทนาแบบ read-only ดู [คู่มือและรายการตรวจสอบ](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้ยัง **ไม่ได้รวมใน release beta.15** และต้องทดสอบ ChatGPT Host จริงก่อนประกาศรองรับ
+
 ### Agent Skills ใน beta.15
 
 Source ปัจจุบันเพิ่มหน้า **Agent Skills** ใน Dashboard สำหรับติดตั้ง Skill ครั้งเดียวจาก **Recommended Skills, GitHub หรือ local folder** แล้วตั้งพฤติกรรมแยกแต่ละ Workspace เป็น **AUTO**, **ASK** หรือ **MANUAL** ได้

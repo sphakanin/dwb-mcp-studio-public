@@ -158,6 +158,8 @@ try {
     [
       'dwb_bridge_status',
       'dwb_broker_status',
+      'dwb_companion',
+      'dwb_companion_snapshot',
       'dwb_session_status',
       'dwb_restart_worker',
       'dwb_list_sessions',
@@ -166,6 +168,19 @@ try {
       'skills',
       'workspace',
     ].sort(),
+  );
+  const workerCountBeforePanel = (await call(a, 'dwb_broker_status')).structuredContent
+    .activeWorkers;
+  const companionPanel = await call(a, 'dwb_companion');
+  assert.equal(companionPanel.structuredContent.kind, 'dwb-companion-v1');
+  assert.equal(companionPanel.structuredContent.workspaces.length, 0);
+  assert.ok(companionPanel.content[0].text.includes('dwb-companion-v1'));
+  const refreshedCompanion = await call(a, 'dwb_companion_snapshot');
+  assert.equal(refreshedCompanion.structuredContent.kind, 'dwb-companion-v1');
+  assert.equal(
+    (await call(a, 'dwb_broker_status')).structuredContent.activeWorkers,
+    workerCountBeforePanel,
+    'Companion snapshot must not allocate a Desktop Commander worker',
   );
   const configA = JSON.parse((await call(a, 'get_config')).content[0].text);
   const configB = JSON.parse((await call(b, 'get_config')).content[0].text);

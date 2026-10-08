@@ -23,6 +23,7 @@ foreach ($File in $Files) {
 if (-not $Source) {
 $Dist = Join-Path $Stage 'dist'
 New-Item -ItemType Directory -Path $Dist | Out-Null
+Copy-Item -LiteralPath (Join-Path $ProjectRoot 'dist/companion-panel.html') -Destination $Dist
 Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'dist') -File -Filter '*.js' |
   Where-Object { $_.Name -notlike '*-test.js' -and $_.Name -ne 'test-policy.js' } |
   Copy-Item -Destination $Dist

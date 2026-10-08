@@ -14,7 +14,7 @@ assert.ok(!current.includes('docs/RECORDING-SKILLS-TH.md'));
 
 const fixture = await mkdtemp(resolve(tmpdir(), 'dwb-distribution-'));
 try {
-  for (const dir of ['src', 'scripts', 'docs', 'assets', '.github'])
+  for (const dir of ['src', 'scripts', 'docs', 'assets', 'web', '.github'])
     await mkdir(resolve(fixture, dir), { recursive: true });
   const manifest = {
     files: ['scripts/distribution-files.json', 'src/index.ts', 'docs/guide.md'],

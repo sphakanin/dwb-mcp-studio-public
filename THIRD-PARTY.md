@@ -6,6 +6,8 @@ The release does not contain Node.js, Desktop Commander, Desktop Commander Remot
 
 When the user clicks Install in Setup, their machine downloads Desktop Commander 0.2.50 from npm and tunnel-client 0.0.11 from the [official OpenAI release](https://github.com/openai/tunnel-client/releases/tag/v0.0.11), into this DWB installation's `external` folder. These downloads are separate from the distributed ZIP. Their upstream licenses apply and are retained. See [sources and installation](docs/EXTERNAL.md).
 
+The experimental DWB Companion HTML bundle embeds `@modelcontextprotocol/ext-apps` UI SDK 2.0.3 and transitive client code, so the generated HTML is not solely DWB-authored source. The published package metadata for ext-apps declares MIT; its upstream LICENSE additionally contains an Apache-2.0 transition notice, Apache-2.0 terms, and MIT terms. A copy of that upstream LICENSE is included at `assets/licenses/ext-apps-LICENSE.txt` for redistribution. Review and retain notices for bundled transitive dependencies before publishing a release.
+
 The package manifests reference MCP SDK libraries, Zod and development tools. npm downloads these dependencies on the user's machine during setup; their own licenses apply. They are not vendored or bundled in DWB's ZIP. `npm ci --omit=dev` does not install Desktop Commander or a tunnel.
 
 The DWB worker loader redirects the supported external worker's configuration-home expression in memory. It does not copy the external package into a release or alter the user's installed files. The test fixture under the DWB test script is an original minimal MCP test double.

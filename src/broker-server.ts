@@ -2,7 +2,7 @@ import { RequestLifetime } from './request-lifetime.js';
 import { acquireUnixBrokerLease } from './unix-broker-lease.js';
 import { runtimeIdentity, sameRuntimePath } from './runtime-identity.js';
 import { createServer, type Socket } from 'node:net';
-import { chmod, lstat, mkdir, unlink } from 'node:fs/promises';
+import { chmod, lstat, mkdir, readFile, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute } from 'node:path';
 import {
   brokerEndpoint,
@@ -12,6 +12,7 @@ import {
   type BrokerResponse,
 } from './broker-protocol.js';
 import { brokerTools, textResult, NOT_A_CONTROL_TOOL } from './broker-tools.js';
+import { COMPANION_URI, COMPANION_MIME, makeCompanionSnapshot } from './companion-panel.js';
 import { EventLog } from './event-log.js';
 import { SessionRegistry } from './session-registry.js';
 import { CoreStore } from './core-store.js';
@@ -132,6 +133,21 @@ async function controlTool(
         logicalWorkspace: workspaceStore.current(String(session.sessionId)),
       })),
     });
+  }
+  if (name === 'dwb_companion' || name === 'dwb_companion_snapshot') {
+    const current = workspaceStore.current(sessionId);
+    return textResult(
+      makeCompanionSnapshot({
+        broker: registry.status,
+        current,
+        workspaces: workspaceStore.list(),
+        skills: skillStore.list(current?.id),
+        sessions: registry.listSessions().map((session) => ({
+          ...session,
+          workspaceName: workspaceStore.current(String(session.sessionId))?.name ?? null,
+        })),
+      }),
+    );
   }
   if (name === 'skills') {
     const action = argText(args.action);
@@ -344,12 +360,39 @@ async function handle(
     }
     return registry.callTool(sessionId, message.id, params, lifetime);
   }
-  if (message.method === 'list_resources') return registry.listResources(sessionId, lifetime);
+  if (message.method === 'list_resources') {
+    const upstream = await registry.listResources(sessionId, lifetime);
+    return {
+      ...upstream,
+      resources: [
+        ...(upstream.resources ?? []),
+        {
+          uri: COMPANION_URI,
+          name: 'DWB Companion',
+          description: 'Read-only ChatGPT conversation panel for DWB MCP Studio',
+          mimeType: COMPANION_MIME,
+        },
+      ],
+    };
+  }
   if (message.method === 'list_resource_templates')
     return registry.listResourceTemplates(sessionId, lifetime);
   if (message.method === 'read_resource') {
     const uri = message.params?.uri;
     if (typeof uri !== 'string' || !uri) throw new Error('read_resource requires uri');
+    if (uri === COMPANION_URI) {
+      const html = await readFile(new URL('./companion-panel.html', import.meta.url), 'utf8');
+      return {
+        contents: [
+          {
+            uri: COMPANION_URI,
+            mimeType: COMPANION_MIME,
+            text: html,
+            _meta: { ui: { prefersBorder: true } },
+          },
+        ],
+      };
+    }
     return registry.readResource(sessionId, uri, lifetime);
   }
   if (message.method === 'shutdown') {

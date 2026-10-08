@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DWB Companion</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #fa4616;
+        --navy: #17202e;
+        --paper: #f7f5f0;
+        --line: rgba(120, 130, 145, 0.24);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--color-background-primary, transparent);
+        color: var(--color-text-primary, #17202e);
+        font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      main {
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 16px 14px 24px;
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .identity {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .logo {
+        width: 33px;
+        height: 33px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: var(--navy);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+      .logo strong {
+        color: var(--accent);
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.2;
+        letter-spacing: 0.01em;
+      }
+      .sub {
+        font-size: 11px;
+        color: var(--color-text-secondary, #777);
+        margin-top: 3px;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        transition:
+          border-color 0.12s,
+          background 0.12s;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .secondary {
+        border: 1px solid var(--line);
+        color: inherit;
+        background: var(--color-background-secondary, rgba(130, 140, 150, 0.06));
+        border-radius: 9px;
+        padding: 7px 10px;
+      }
+      .secondary:hover {
+        border-color: var(--accent);
+      }
+      .primary {
+        border: 0;
+        color: #fff;
+        background: var(--accent);
+        padding: 11px 13px;
+        border-radius: 10px;
+        font-weight: 700;
+        width: 100%;
+        min-height: 42px;
+      }
+      .primary:hover {
+        filter: brightness(0.96);
+      }
+      .primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+        margin-bottom: 16px;
+      }
+      .metric {
+        padding: 12px 10px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--color-background-secondary, rgba(150, 150, 150, 0.045));
+      }
+      .metric span {
+        display: block;
+        color: var(--color-text-secondary, #777);
+        font-size: 10px;
+        margin-bottom: 4px;
+      }
+      .metric strong {
+        font-weight: 800;
+        font-size: 18px;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+      }
+      .section {
+        margin: 17px 0 0;
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 9px;
+        gap: 10px;
+      }
+      h2 {
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .small {
+        font-size: 10px;
+        color: var(--color-text-secondary, #777);
+      }
+      .project-list {
+        display: grid;
+        gap: 6px;
+        max-height: 260px;
+        overflow: auto;
+      }
+      .project {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 7px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        padding: 10px;
+        text-align: left;
+        background: var(--color-background-secondary, rgba(150, 150, 150, 0.035));
+        color: inherit;
+        width: 100%;
+      }
+      .project:hover,
+      .project[aria-pressed='true'] {
+        border-color: var(--accent);
+      }
+      .project[aria-pressed='true'] {
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+      .project-name {
+        font-weight: 650;
+        word-break: break-word;
+      }
+      .pill {
+        border-radius: 20px;
+        font-size: 10px;
+        padding: 3px 6px;
+        border: 1px solid var(--line);
+        white-space: nowrap;
+        color: var(--color-text-secondary, #777);
+      }
+      .pill.active {
+        color: var(--accent);
+        border-color: rgba(250, 70, 22, 0.45);
+      }
+      .note {
+        color: var(--color-text-secondary, #777);
+        font-size: 11px;
+        margin: 10px 0 9px;
+      }
+      .mini-list {
+        display: grid;
+        gap: 5px;
+      }
+      .mini-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid var(--line);
+        padding: 8px 10px;
+        border-radius: 8px;
+        min-width: 0;
+      }
+      .mini-row .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .good {
+        color: #21976b;
+      }
+      .muted {
+        color: var(--color-text-secondary, #777);
+      }
+      .warning {
+        color: var(--accent);
+      }
+      #feedback {
+        min-height: 17px;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--color-text-secondary, #777);
+      }
+      #manual {
+        margin-top: 8px;
+        width: 100%;
+        min-height: 80px;
+        padding: 8px;
+        background: var(--color-background-secondary, rgba(150, 150, 150, 0.05));
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: inherit;
+        display: none;
+        resize: vertical;
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+        margin-top: 18px;
+        font-size: 10px;
+        color: var(--color-text-secondary, #777);
+      }
+      .hide {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="identity">
+          <div class="logo">D<strong>W</strong>B</div>
+          <div>
+            <h1>DWB Companion</h1>
+            <p class="sub">MCP Studio · <span id="version">connecting</span></p>
+          </div>
+        </div>
+        <button
+          id="refresh"
+          class="secondary"
+          type="button"
+          disabled
+          aria-label="Refresh live snapshot"
+        >
+          ↻ Refresh
+        </button>
+      </header>
+      <div class="metrics" aria-label="Live broker metrics">
+        <div class="metric"><span>Workers</span><strong id="workers">—</strong></div>
+        <div class="metric"><span>Sessions</span><strong id="sessions">—</strong></div>
+        <div class="metric"><span>Queue</span><strong id="queue">—</strong></div>
+      </div>
+      <section class="section">
+        <div class="section-head">
+          <h2>Workspaces</h2>
+          <span class="small" id="projects-count"></span>
+        </div>
+        <div id="project-list" class="project-list">
+          <span class="small">Connecting to DWB Studio…</span>
+        </div>
+        <p class="note">
+          Select a project below. Binding is performed by ChatGPT, not by the panel.
+        </p>
+        <button id="ask" class="primary" type="button" disabled>Ask ChatGPT to inspect</button>
+        <div id="feedback" role="status" aria-live="polite"></div>
+        <textarea id="manual" readonly aria-label="Copy prompt manually"></textarea>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>Agent Skills</h2>
+          <span class="small" id="skills-count"></span>
+        </div>
+        <div id="skills-list" class="mini-list"><span class="small">No data yet</span></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <h2>Live sessions</h2>
+          <span class="small" id="session-count"></span>
+        </div>
+        <div id="session-list" class="mini-list"><span class="small">No data yet</span></div>
+      </section>
+      <footer>
+        Read-only view. DWB keeps command permissions, workspace boundaries and skill approval in
+        the MCP server. <span id="updated"></span>
+      </footer>
+    </main>
+    <!-- DWB_COMPANION_SCRIPT -->
+  </body>
+</html>

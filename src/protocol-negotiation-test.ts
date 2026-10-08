@@ -37,6 +37,8 @@ let brokerPid: number | null = null;
 function verifyToolSurface(tools: { name: string }[]): string[] {
   const names = new Set(tools.map((tool) => tool.name));
   const required = [
+    'dwb_companion',
+    'dwb_companion_snapshot',
     'workspace',
     'skills',
     'dwb_bridge_status',
@@ -78,13 +80,22 @@ async function modern() {
     const tools = await client.listTools();
     const resources = await client.listResources();
     const preview = await client.readResource({ uri: 'ui://desktop-commander/file-preview' });
+    const companion = await client.readResource({ uri: 'ui://dwb-mcp-studio/companion-panel' });
+    const entry = tools.tools.find((item: any) => item.name === 'dwb_companion') as any;
+    assert.equal(entry?._meta?.ui?.resourceUri, 'ui://dwb-mcp-studio/companion-panel');
+    assert.deepEqual(entry?._meta?.['openai/ui']?.entrypoints, [{ type: 'thread' }]);
+    assert.ok(companion.contents?.[0] && 'text' in companion.contents[0]);
+    assert.ok(
+      'text' in companion.contents[0] && companion.contents[0].text.includes('DWB Companion'),
+    );
+    assert.equal(companion.contents?.[0]?.mimeType, 'text/html;profile=mcp-app');
     if (client.getProtocolEra() !== 'modern')
       throw new Error(`Expected modern era, got ${client.getProtocolEra()}`);
     if (client.getNegotiatedProtocolVersion() !== '2026-07-28')
       throw new Error(`Unexpected modern version: ${client.getNegotiatedProtocolVersion()}`);
     const toolNames = verifyToolSurface(tools.tools);
     if (
-      resources.resources.length !== 2 ||
+      resources.resources.length !== 3 ||
       !String(preview.contents?.[0]?.mimeType).includes('mcp-app')
     )
       throw new Error('Modern resource proxy mismatch');
@@ -114,7 +125,7 @@ async function legacy() {
     const tools = await client.listTools();
     const resources = await client.listResources();
     const toolNames = verifyToolSurface(tools.tools);
-    if (resources.resources.length !== 2) throw new Error('Legacy resource proxy mismatch');
+    if (resources.resources.length !== 3) throw new Error('Legacy resource proxy mismatch');
     const status: any = await client.callTool({ name: 'dwb_broker_status', arguments: {} });
     brokerPid = Number(status.structuredContent?.brokerPid ?? 0) || null;
     return {

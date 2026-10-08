@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM"],
+    "types": [],
+    "incremental": false,
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["web/companion.ts"]
+}

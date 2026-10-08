@@ -1,3 +1,5 @@
+import { companionTools } from './companion-panel.js';
+
 // Returned by controlTool when the name is not a broker control tool, so a
 // control tool that legitimately returns a falsy result is not mistaken for
 // "unhandled" and forwarded to the Desktop Commander worker.
@@ -129,6 +131,7 @@ export const brokerTools = [
     },
     annotations: { destructiveHint: false, idempotentHint: false },
   },
+  ...companionTools,
 ] as const;
 
 export function textResult(value: unknown) {

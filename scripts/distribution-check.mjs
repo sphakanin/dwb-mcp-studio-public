@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
-const sourceDirectories = ['src', 'scripts', 'docs', 'assets', '.github'];
+const sourceDirectories = ['src', 'scripts', 'docs', 'assets', 'web', '.github'];
 
 function publicPath(path) {
   if (
