@@ -28,7 +28,7 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 
 ### DWB Companion Panel (ทดลองใน feature branch)
 
-กำลังพัฒนา ChatGPT **Conversation Panel** ด้วย MCP Apps + MCP Extensions ใช้ `thread` entrypoint เพื่อแสดง Workspace, Worker/Session และ Agent Skills จาก DWB MCP Studio โดยตรงใน ChatGPT พร้อมปุ่มส่งคำขอวิเคราะห์ไปยังบทสนทนาแบบ read-only ดู [คู่มือและรายการตรวจสอบ](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้ยัง **ไม่ได้รวมใน release beta.15** และต้องทดสอบ ChatGPT Host จริงก่อนประกาศรองรับ
+กำลังพัฒนา **DWB Project Launcher** ผ่าน ChatGPT Conversation Panel (MCP Apps + MCP Extensions, `thread` entrypoint) ให้เลือกและสลับ Workspace, สร้างโปรเจกต์จาก Starter Templates ภายในโฟลเดอร์ที่อนุญาต, เพิ่ม Existing Project และเลือก Related Workspaces เป็น read-only references พร้อมส่ง Context ให้ ChatGPT โดยไม่ต้องพิมพ์ Path ซ้ำ ดู [คู่มือและรายการตรวจสอบ](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้ยัง **ไม่ได้รวมใน release beta.15** และต้องผ่าน E2E บน ChatGPT Host จริงก่อนแจก
 
 ### Agent Skills ใน beta.15
 

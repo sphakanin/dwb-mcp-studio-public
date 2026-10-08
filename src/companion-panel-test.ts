@@ -10,8 +10,10 @@ assert.equal(companionTools[0].name, 'dwb_companion');
 assert.equal(companionTools[0]._meta.ui.resourceUri, COMPANION_URI);
 assert.deepEqual(companionTools[0]._meta['openai/ui']?.entrypoints, [{ type: 'thread' }]);
 assert.equal(COMPANION_MIME, 'text/html;profile=mcp-app');
-assert.equal(companionTools[1].name, 'dwb_companion_snapshot');
+assert.equal(companionTools[1].name, 'dwb_companion_action');
 assert.deepEqual(companionTools[1]._meta.ui.visibility, ['app']);
+assert.equal(companionTools[2].name, 'dwb_companion_snapshot');
+assert.deepEqual(companionTools[2]._meta.ui.visibility, ['app']);
 
 const sample = makeCompanionSnapshot({
   broker: {

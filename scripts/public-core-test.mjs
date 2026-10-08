@@ -160,6 +160,7 @@ try {
       'dwb_broker_status',
       'dwb_companion',
       'dwb_companion_snapshot',
+      'dwb_companion_action',
       'dwb_session_status',
       'dwb_restart_worker',
       'dwb_list_sessions',
@@ -182,6 +183,57 @@ try {
     workerCountBeforePanel,
     'Companion snapshot must not allocate a Desktop Commander worker',
   );
+  const projectHome = companionPanel.structuredContent.projectHomes[0];
+  assert.ok(projectHome, 'At least one approved test project home must exist.');
+  const createdViaPanel = await call(a, 'dwb_companion_action', {
+    action: 'create',
+    home_id: projectHome.id,
+    project_name: 'panel-launch-site',
+    project_kind: 'web',
+  });
+  assert.equal(createdViaPanel.structuredContent.currentWorkspace.name, 'panel-launch-site');
+  assert.match(
+    await readFile(resolve(testDir, 'panel-launch-site', 'README.md'), 'utf8'),
+    /panel-launch-site/,
+  );
+  const panelCreatedId = createdViaPanel.structuredContent.currentWorkspace.id;
+  const anotherProject = resolve(testDir, 'panel-reference');
+  await mkdir(anotherProject);
+  const existingViaPanel = await call(a, 'dwb_companion_action', {
+    action: 'add_existing',
+    path: anotherProject,
+  });
+  assert.equal(existingViaPanel.structuredContent.currentWorkspace.name, 'panel-reference');
+  const withReference = await call(a, 'dwb_companion_action', {
+    action: 'related_add',
+    workspace_id: panelCreatedId,
+  });
+  assert.equal(withReference.structuredContent.relatedWorkspaces[0].id, panelCreatedId);
+  assert.equal(withReference.structuredContent.currentWorkspace.name, 'panel-reference');
+  const removedReference = await call(a, 'dwb_companion_action', {
+    action: 'related_remove',
+    workspace_id: panelCreatedId,
+  });
+  assert.equal(removedReference.structuredContent.relatedWorkspaces.length, 0);
+  const switchedViaPanel = await call(a, 'dwb_companion_action', {
+    action: 'switch',
+    workspace_id: panelCreatedId,
+  });
+  assert.equal(switchedViaPanel.structuredContent.currentWorkspace.name, 'panel-launch-site');
+  await assert.rejects(
+    call(a, 'dwb_companion_action', {
+      action: 'add_existing',
+      path: resolve(testDir, '..'),
+    }),
+    /outside DWB allowedDirectories/,
+    'Panel must honor the base directory policy.',
+  );
+  await call(a, 'workspace', { action: 'unbind' });
+  assert.ok(
+    (await call(a, 'dwb_broker_status')).structuredContent.activeWorkers <= workerCountBeforePanel,
+    'Project actions may retire idle workers but must not allocate workers.',
+  );
+
   const configA = JSON.parse((await call(a, 'get_config')).content[0].text);
   const configB = JSON.parse((await call(b, 'get_config')).content[0].text);
   assert.notEqual(configA.pid, configB.pid);

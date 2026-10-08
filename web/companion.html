@@ -3,34 +3,33 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DWB Companion</title>
+    <title>DWB Project Launcher</title>
     <style>
       :root {
         color-scheme: light dark;
         --accent: #fa4616;
         --navy: #17202e;
-        --paper: #f7f5f0;
-        --line: rgba(120, 130, 145, 0.24);
+        --line: rgba(127, 135, 149, 0.24);
       }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        padding: 0;
-        background: var(--color-background-primary, transparent);
         color: var(--color-text-primary, #17202e);
+        background: var(--color-background-primary, transparent);
         font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
         font-size: 13px;
-        line-height: 1.4;
+        line-height: 1.48;
       }
       main {
-        max-width: 620px;
-        margin: 0 auto;
-        padding: 16px 14px 24px;
+        max-width: 640px;
+        margin: auto;
+        padding: 17px 15px 24px;
       }
       h1,
       h2,
+      h3,
       p {
         margin: 0;
       }
@@ -39,7 +38,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        margin-bottom: 16px;
+        margin-bottom: 17px;
       }
       .identity {
         display: flex;
@@ -47,203 +46,275 @@
         gap: 9px;
       }
       .logo {
-        width: 33px;
-        height: 33px;
-        border-radius: 10px;
+        width: 37px;
+        height: 37px;
         display: grid;
         place-items: center;
         background: var(--navy);
+        border-radius: 11px;
         color: #fff;
-        font-size: 12px;
-        font-weight: 800;
+        font-size: 15px;
+        font-weight: 900;
         letter-spacing: -1px;
       }
-      .logo strong {
+      .logo b {
         color: var(--accent);
       }
       h1 {
-        font-size: 14px;
+        font-size: 15px;
+        line-height: 1.3;
         font-weight: 800;
-        line-height: 1.2;
-        letter-spacing: 0.01em;
       }
-      .sub {
+      h2 {
+        font-size: 13px;
+        font-weight: 750;
+      }
+      .meta {
         font-size: 11px;
         color: var(--color-text-secondary, #777);
-        margin-top: 3px;
+      }
+      button,
+      select,
+      input {
+        font: inherit;
       }
       button {
-        font: inherit;
         cursor: pointer;
-        transition:
-          border-color 0.12s,
-          background 0.12s;
       }
-      button:focus-visible {
+      button:disabled,
+      select:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
       }
-      .secondary {
-        border: 1px solid var(--line);
-        color: inherit;
-        background: var(--color-background-secondary, rgba(130, 140, 150, 0.06));
-        border-radius: 9px;
+      .subtle {
         padding: 7px 10px;
+        background: var(--color-background-secondary, rgba(125, 125, 125, 0.06));
+        color: inherit;
+        border: 1px solid var(--line);
+        border-radius: 9px;
       }
-      .secondary:hover {
+      .subtle:hover:not(:disabled) {
         border-color: var(--accent);
       }
-      .primary {
-        border: 0;
-        color: #fff;
+      button.primary {
         background: var(--accent);
-        padding: 11px 13px;
+        color: white;
+        border: 0;
         border-radius: 10px;
-        font-weight: 700;
-        width: 100%;
+        padding: 11px 13px;
         min-height: 42px;
+        font-weight: 750;
+        width: 100%;
+        margin-top: 7px;
       }
-      .primary:hover {
-        filter: brightness(0.96);
+      button.primary:hover:not(:disabled) {
+        filter: brightness(0.94);
       }
-      .primary:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
+      .panel {
+        border: 1px solid var(--line);
+        background: var(--color-background-secondary, rgba(140, 140, 140, 0.04));
+        border-radius: 14px;
+        padding: 13px;
+        margin: 12px 0;
+      }
+      .panel-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        font-size: 10px;
+        color: var(--color-text-secondary, #777);
+        font-weight: 700;
+      }
+      .pill {
+        border: 1px solid rgba(250, 70, 22, 0.33);
+        color: var(--accent);
+        border-radius: 24px;
+        padding: 3px 7px;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+        margin-bottom: 9px;
+      }
+      .field label {
+        font-size: 11px;
+        color: var(--color-text-secondary, #777);
+      }
+      .field select,
+      .field input {
+        width: 100%;
+        min-width: 0;
+        min-height: 38px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        padding: 8px;
+        background: var(--color-background-primary, #fff);
+        color: var(--color-text-primary, #17202e);
+      }
+      .field input::placeholder {
+        color: var(--color-text-secondary, #777);
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+        margin: 14px 0;
+      }
+      .action {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 13px 10px;
+        text-align: left;
+        display: grid;
+        gap: 4px;
+        background: var(--color-background-secondary, rgba(140, 140, 140, 0.035));
+        color: inherit;
+      }
+      .action strong {
+        font-size: 12px;
+      }
+      .action small {
+        font-size: 10px;
+        color: var(--color-text-secondary, #777);
+      }
+      .action:hover {
+        border-color: var(--accent);
+      }
+      .hidden {
+        display: none !important;
+      }
+      .form-panel {
+        border: 1px solid var(--line);
+        padding: 12px;
+        border-radius: 11px;
+        margin: 8px 0 13px;
+      }
+      .form-panel .panel-title {
+        margin-bottom: 12px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 9px;
+      }
+      .row > * {
+        min-width: 0;
+      }
+      .row select {
+        flex: 1;
+      }
+      .note {
+        font-size: 11px;
+        color: var(--color-text-secondary, #777);
+        margin-top: 5px;
+      }
+      .reference {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 9px 10px;
+        margin-bottom: 6px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      .reference span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ref-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px;
+        margin-top: 8px;
+      }
+      .ref-actions select {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: var(--color-background-primary, #fff);
+        color: var(--color-text-primary, #17202e);
+        border-radius: 9px;
+        padding: 9px;
+      }
+      #notice {
+        min-height: 19px;
+        color: var(--color-text-secondary, #777);
+        font-size: 11px;
+        margin: 7px 0 0;
+        white-space: pre-wrap;
+      }
+      #notice.error {
+        color: var(--accent);
+      }
+      #context-status {
+        font-size: 10px;
+        color: var(--color-text-secondary, #777);
+        margin: 5px 0 0;
+      }
+      #manual {
+        display: none;
+        width: 100%;
+        min-height: 66px;
+        margin: 8px 0;
+        resize: vertical;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: inherit;
+        padding: 8px;
+        border-radius: 8px;
+      }
+      details {
+        margin-top: 14px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+      summary {
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
       }
       .metrics {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         gap: 7px;
-        margin-bottom: 16px;
+        margin: 12px 0;
       }
       .metric {
-        padding: 12px 10px;
+        padding: 9px;
         border: 1px solid var(--line);
-        border-radius: 11px;
-        background: var(--color-background-secondary, rgba(150, 150, 150, 0.045));
+        border-radius: 9px;
       }
       .metric span {
         display: block;
         color: var(--color-text-secondary, #777);
         font-size: 10px;
-        margin-bottom: 4px;
       }
-      .metric strong {
-        font-weight: 800;
-        font-size: 18px;
-        line-height: 1.1;
-        letter-spacing: -0.03em;
+      .metric b {
+        font-size: 17px;
       }
-      .section {
-        margin: 17px 0 0;
-      }
-      .section-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 9px;
-        gap: 10px;
-      }
-      h2 {
-        font-size: 12px;
-        font-weight: 800;
-      }
-      .small {
-        font-size: 10px;
-        color: var(--color-text-secondary, #777);
-      }
-      .project-list {
-        display: grid;
-        gap: 6px;
-        max-height: 260px;
-        overflow: auto;
-      }
-      .project {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 7px;
-        border-radius: 10px;
-        border: 1px solid var(--line);
-        padding: 10px;
-        text-align: left;
-        background: var(--color-background-secondary, rgba(150, 150, 150, 0.035));
-        color: inherit;
-        width: 100%;
-      }
-      .project:hover,
-      .project[aria-pressed='true'] {
-        border-color: var(--accent);
-      }
-      .project[aria-pressed='true'] {
-        box-shadow: inset 3px 0 0 var(--accent);
-      }
-      .project-name {
-        font-weight: 650;
-        word-break: break-word;
-      }
-      .pill {
-        border-radius: 20px;
-        font-size: 10px;
-        padding: 3px 6px;
-        border: 1px solid var(--line);
-        white-space: nowrap;
-        color: var(--color-text-secondary, #777);
-      }
-      .pill.active {
-        color: var(--accent);
-        border-color: rgba(250, 70, 22, 0.45);
-      }
-      .note {
-        color: var(--color-text-secondary, #777);
-        font-size: 11px;
-        margin: 10px 0 9px;
-      }
-      .mini-list {
-        display: grid;
-        gap: 5px;
-      }
-      .mini-row {
+      .small-row {
         display: flex;
         justify-content: space-between;
         gap: 8px;
-        align-items: center;
-        border: 1px solid var(--line);
-        padding: 8px 10px;
-        border-radius: 8px;
-        min-width: 0;
-      }
-      .mini-row .name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .good {
-        color: #21976b;
-      }
-      .muted {
-        color: var(--color-text-secondary, #777);
-      }
-      .warning {
-        color: var(--accent);
-      }
-      #feedback {
-        min-height: 17px;
-        margin-top: 8px;
+        padding: 6px;
+        border-bottom: 1px solid var(--line);
         font-size: 11px;
-        color: var(--color-text-secondary, #777);
-      }
-      #manual {
-        margin-top: 8px;
-        width: 100%;
-        min-height: 80px;
-        padding: 8px;
-        background: var(--color-background-secondary, rgba(150, 150, 150, 0.05));
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        color: inherit;
-        display: none;
-        resize: vertical;
       }
       footer {
         border-top: 1px solid var(--line);
@@ -252,8 +323,13 @@
         font-size: 10px;
         color: var(--color-text-secondary, #777);
       }
-      .hide {
-        display: none;
+      @media (max-width: 400px) {
+        main {
+          padding: 12px;
+        }
+        .actions {
+          gap: 6px;
+        }
       }
     </style>
   </head>
@@ -261,59 +337,127 @@
     <main>
       <header>
         <div class="identity">
-          <div class="logo">D<strong>W</strong>B</div>
+          <div class="logo">D<b>W</b>B</div>
           <div>
-            <h1>DWB Companion</h1>
-            <p class="sub">MCP Studio · <span id="version">connecting</span></p>
+            <h1>Project Launcher</h1>
+            <p class="meta">DWB Companion · <span id="version">connecting</span></p>
           </div>
         </div>
-        <button
-          id="refresh"
-          class="secondary"
-          type="button"
-          disabled
-          aria-label="Refresh live snapshot"
-        >
-          ↻ Refresh
-        </button>
+        <button id="refresh" class="subtle" type="button" disabled>↻ Refresh</button>
       </header>
-      <div class="metrics" aria-label="Live broker metrics">
-        <div class="metric"><span>Workers</span><strong id="workers">—</strong></div>
-        <div class="metric"><span>Sessions</span><strong id="sessions">—</strong></div>
-        <div class="metric"><span>Queue</span><strong id="queue">—</strong></div>
-      </div>
-      <section class="section">
-        <div class="section-head">
-          <h2>Workspaces</h2>
-          <span class="small" id="projects-count"></span>
+
+      <section class="panel">
+        <div class="panel-title">
+          <span class="kicker">Active workspace</span
+          ><span class="pill" id="active-status">Not selected</span>
         </div>
-        <div id="project-list" class="project-list">
-          <span class="small">Connecting to DWB Studio…</span>
+        <div class="field">
+          <label for="active-picker">Switch project without typing a path in chat</label>
+          <select id="active-picker" disabled>
+            <option>Connecting…</option>
+          </select>
+        </div>
+        <div id="context-status">The active project is used for the next ChatGPT request.</div>
+      </section>
+
+      <div class="actions">
+        <button class="action" id="new-toggle" type="button">
+          <strong>＋ New Project</strong><small>Create in an approved folder</small>
+        </button>
+        <button class="action" id="add-toggle" type="button">
+          <strong>↗ Add Existing</strong><small>Register a project folder</small>
+        </button>
+      </div>
+
+      <form id="create-form" class="form-panel hidden" autocomplete="off">
+        <div class="panel-title">
+          <h2>Create Project</h2>
+          <button type="button" class="subtle" id="close-create">×</button>
+        </div>
+        <div class="field">
+          <label for="home-picker">Save in</label
+          ><select id="home-picker" required></select>
+        </div>
+        <div class="field">
+          <label for="project-name">Project name</label
+          ><input
+            id="project-name"
+            required
+            maxlength="60"
+            placeholder="dwb-launch-site"
+            pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
+          />
+        </div>
+        <div class="field">
+          <label for="project-kind">Starter template</label
+          ><select id="project-kind">
+            <option value="web">Website</option>
+            <option value="docs">Documentation</option>
+            <option value="blank">Blank</option>
+          </select>
+        </div>
+        <p class="note" id="home-help">
+          Creates a new folder, README and starter files. Never overwrites an existing folder.
+        </p>
+        <button class="primary" id="create-submit" type="submit">Create & Switch Workspace</button>
+      </form>
+
+      <form id="add-form" class="form-panel hidden" autocomplete="off">
+        <div class="panel-title">
+          <h2>Add Existing Folder</h2>
+          <button type="button" class="subtle" id="close-add">×</button>
+        </div>
+        <div class="field">
+          <label for="existing-path">Absolute local folder path (one-time)</label
+          ><input id="existing-path" required placeholder="C:\Projects\my-app" />
+        </div>
+        <p class="note">The folder must already exist inside your DWB allowedDirectories.</p>
+        <button class="primary" type="submit">Register & Switch</button>
+      </form>
+
+      <section class="panel" id="related-section">
+        <div class="panel-title">
+          <h2>Related Workspaces</h2>
+          <span class="pill">Read-only references</span>
+        </div>
+        <div id="related-list"></div>
+        <div class="ref-actions">
+          <select id="related-picker" aria-label="Choose a reference workspace">
+            <option>Select project…</option>
+          </select>
+          <button class="subtle" id="related-add" type="button" disabled>+ Add</button>
         </div>
         <p class="note">
-          Select a project below. Binding is performed by ChatGPT, not by the panel.
+          References help ChatGPT locate supporting files. They do not grant extra filesystem access
+          or write permissions.
         </p>
-        <button id="ask" class="primary" type="button" disabled>Ask ChatGPT to inspect</button>
-        <div id="feedback" role="status" aria-live="polite"></div>
-        <textarea id="manual" readonly aria-label="Copy prompt manually"></textarea>
       </section>
-      <section class="section">
-        <div class="section-head">
+
+      <button class="primary" id="ask" type="button" disabled>✦ Continue with ChatGPT</button>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <textarea id="manual" readonly aria-label="Prompt to copy manually"></textarea>
+
+      <details>
+        <summary>System status · Workers / Sessions / Skills</summary>
+        <div class="metrics">
+          <div class="metric"><span>Workers</span><b id="workers">—</b></div>
+          <div class="metric"><span>Sessions</span><b id="sessions">—</b></div>
+          <div class="metric"><span>Queue</span><b id="queue">—</b></div>
+        </div>
+        <div class="row">
           <h2>Agent Skills</h2>
-          <span class="small" id="skills-count"></span>
+          <span class="meta" id="skills-count"></span>
         </div>
-        <div id="skills-list" class="mini-list"><span class="small">No data yet</span></div>
-      </section>
-      <section class="section">
-        <div class="section-head">
+        <div id="skills-list"></div>
+        <div class="row">
           <h2>Live sessions</h2>
-          <span class="small" id="session-count"></span>
+          <span class="meta" id="session-count"></span>
         </div>
-        <div id="session-list" class="mini-list"><span class="small">No data yet</span></div>
-      </section>
+        <div id="session-list"></div>
+      </details>
       <footer>
-        Read-only view. DWB keeps command permissions, workspace boundaries and skill approval in
-        the MCP server. <span id="updated"></span>
+        Project actions require your click and remain subject to DWB's local path policy.
+        <span id="updated"></span>
       </footer>
     </main>
     <!-- DWB_COMPANION_SCRIPT -->

@@ -114,6 +114,8 @@
     "scripts/upgrade.mjs",
     "src/broker-client.ts",
     "src/companion-panel.ts",
+    "src/companion-projects.ts",
+    "src/companion-projects-test.ts",
     "src/companion-panel-test.ts",
     "src/broker-protocol.ts",
     "src/broker-recovery-test.ts",

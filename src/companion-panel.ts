@@ -1,4 +1,5 @@
-// Read-only ChatGPT conversation panel. No worker allocation or file access here.
+// ChatGPT conversation panel: status is read-only; project actions require explicit UI clicks.
+// Workspace binding and filesystem checks remain server-side.
 export const COMPANION_URI = 'ui://dwb-mcp-studio/companion-panel';
 export const COMPANION_MIME = 'text/html;profile=mcp-app';
 
@@ -7,13 +8,37 @@ export const companionTools = [
     name: 'dwb_companion',
     title: 'DWB Companion',
     description:
-      'Open the DWB MCP Studio Companion in the conversation side panel. Shows registered workspaces, live broker health, sessions and installed Agent Skills. Read-only: selecting a workspace asks ChatGPT to bind it.',
+      'Open the DWB Project Launcher beside this conversation. Manage workspaces, create projects in approved roots, attach read-only reference workspaces, and view live DWB status.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
     _meta: {
       ui: { resourceUri: COMPANION_URI, visibility: ['model', 'app'] },
       'openai/ui': { entrypoints: [{ type: 'thread' }] },
     },
+  },
+  {
+    name: 'dwb_companion_action',
+    title: 'DWB Project Launcher action',
+    description:
+      'Perform one user-selected action from the DWB Companion panel: create, switch, add existing, or manage related workspaces.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['create', 'switch', 'add_existing', 'related_add', 'related_remove'],
+        },
+        workspace_id: { type: 'string' },
+        home_id: { type: 'string' },
+        project_name: { type: 'string' },
+        project_kind: { type: 'string', enum: ['blank', 'web', 'docs'] },
+        path: { type: 'string' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    annotations: { destructiveHint: false, idempotentHint: false },
+    _meta: { ui: { visibility: ['app'] } },
   },
   {
     name: 'dwb_companion_snapshot',
@@ -43,6 +68,9 @@ export function makeCompanionSnapshot(input: {
   workspaces: Workspace[];
   skills: Skill[];
   sessions: Array<Session & { workspaceName?: string | null }>;
+  projectHomes?: Array<{ id: string; name: string }>;
+  related?: Workspace[];
+  allowedWorkspaceIds?: string[];
 }) {
   const broker = input.broker;
   const runtime = broker.runtime as { version?: string } | undefined;
@@ -60,7 +88,11 @@ export function makeCompanionSnapshot(input: {
         (broker.persistence as { healthy?: boolean } | undefined)?.healthy === true,
     },
     currentWorkspace: input.current ? { id: input.current.id, name: input.current.name } : null,
+    projectHomes: (input.projectHomes ?? []).map((home) => ({ id: home.id, name: home.name })),
+    relatedWorkspaces: (input.related ?? []).slice(0, 5).map((w) => ({ id: w.id, name: w.name })),
     workspaces: input.workspaces.slice(0, 50).map((w) => ({
+      available:
+        input.allowedWorkspaceIds === undefined || input.allowedWorkspaceIds.includes(w.id),
       id: w.id,
       name: w.name,
       aliases: w.aliases?.slice(0, 4) ?? [],

@@ -13,6 +13,12 @@ import {
 } from './broker-protocol.js';
 import { brokerTools, textResult, NOT_A_CONTROL_TOOL } from './broker-tools.js';
 import { COMPANION_URI, COMPANION_MIME, makeCompanionSnapshot } from './companion-panel.js';
+import {
+  allowedRoots,
+  assertAllowedDirectory,
+  projectHomes,
+  createStarterProject,
+} from './companion-projects.js';
 import { EventLog } from './event-log.js';
 import { SessionRegistry } from './session-registry.js';
 import { CoreStore } from './core-store.js';
@@ -91,6 +97,27 @@ function requestContext(message: BrokerRequest): BrokerLogicalContext | null {
   };
 }
 
+async function companionSnapshot(sessionId: string) {
+  const roots = await allowedRoots();
+  const homes = await projectHomes(roots);
+  const workspaces = workspaceStore.list();
+  const current = workspaceStore.current(sessionId);
+  const available = workspaces.filter((w) => roots.some((root) => pathWithin(root, w.root)));
+  return makeCompanionSnapshot({
+    broker: registry.status,
+    current,
+    workspaces,
+    related: workspaceStore.related(sessionId),
+    projectHomes: homes,
+    allowedWorkspaceIds: available.map((w) => w.id),
+    skills: skillStore.list(current?.id),
+    sessions: registry.listSessions().map((session) => ({
+      ...session,
+      workspaceName: workspaceStore.current(String(session.sessionId))?.name ?? null,
+    })),
+  });
+}
+
 async function controlTool(
   ctx: ConnectionContext,
   sessionId: string,
@@ -134,20 +161,59 @@ async function controlTool(
       })),
     });
   }
-  if (name === 'dwb_companion' || name === 'dwb_companion_snapshot') {
-    const current = workspaceStore.current(sessionId);
-    return textResult(
-      makeCompanionSnapshot({
-        broker: registry.status,
-        current,
-        workspaces: workspaceStore.list(),
-        skills: skillStore.list(current?.id),
-        sessions: registry.listSessions().map((session) => ({
-          ...session,
-          workspaceName: workspaceStore.current(String(session.sessionId))?.name ?? null,
-        })),
-      }),
-    );
+  if (name === 'dwb_companion' || name === 'dwb_companion_snapshot')
+    return textResult(await companionSnapshot(sessionId));
+  if (name === 'dwb_companion_action') {
+    const action = argText(args.action);
+    const roots = await allowedRoots();
+    if (!roots.length)
+      throw new Error('DWB Project Launcher needs a configured allowedDirectories policy.');
+    let message = '';
+    if (action === 'switch') {
+      const workspace = workspaceStore.resolveRef(argText(args.workspace_id));
+      await assertAllowedDirectory(workspace.root, roots);
+      await registry.workspace(sessionId, { action: 'bind', workspace_id: workspace.id });
+      message = 'Switched to ' + workspace.name;
+    } else if (action === 'add_existing') {
+      const path = await assertAllowedDirectory(argText(args.path), roots);
+      const result = await registry.workspace(sessionId, { action: 'bind', path });
+      message = 'Added and selected ' + String((result as any).workspace?.name ?? 'workspace');
+    } else if (action === 'create') {
+      const homes = await projectHomes(roots);
+      const created = await createStarterProject({
+        homeId: argText(args.home_id),
+        projectName: args.project_name,
+        kind: argText(args.project_kind),
+        homes,
+      });
+      // Retain the created folder even if an active worker prevents binding it.
+      const result = await registry
+        .workspace(sessionId, {
+          action: 'bind',
+          path: created.directory,
+        })
+        .catch(async (error) => {
+          await workspaceStore.register({ path: created.directory }, sessionId);
+          return { warning: String(error) };
+        });
+      message =
+        'Created ' +
+        created.name +
+        ((result as any).warning
+          ? ' — saved, but workspace switch was blocked: ' + (result as any).warning
+          : ' and activated');
+    } else if (action === 'related_add') {
+      const target = workspaceStore.resolveRef(argText(args.workspace_id));
+      await assertAllowedDirectory(target.root, roots);
+      workspaceStore.addRelated(sessionId, target.id);
+      message = 'Added read-only reference: ' + target.name;
+    } else if (action === 'related_remove') {
+      workspaceStore.removeRelated(sessionId, argText(args.workspace_id));
+      message = 'Reference removed';
+    } else {
+      throw new Error('Unsupported DWB Companion action.');
+    }
+    return textResult({ ...(await companionSnapshot(sessionId)), message });
   }
   if (name === 'skills') {
     const action = argText(args.action);

@@ -39,6 +39,7 @@ function verifyToolSurface(tools: { name: string }[]): string[] {
   const required = [
     'dwb_companion',
     'dwb_companion_snapshot',
+    'dwb_companion_action',
     'workspace',
     'skills',
     'dwb_bridge_status',

@@ -86,6 +86,53 @@ export class WorkspaceStore {
     return row ? this.view(row) : null;
   }
 
+  related(sessionId: string): WorkspaceView[] {
+    const activeId = this.current(sessionId)?.id;
+    return this.db
+      .query<{ workspace_id: string }>(
+        'SELECT workspace_id FROM companion_related_workspaces WHERE session_id=? ORDER BY added_at',
+        [sessionId],
+      )
+      .filter((item) => item.workspace_id !== activeId)
+      .map((item) => this.row(item.workspace_id))
+      .filter((item) => Boolean(item))
+      .map((item) => this.view(item));
+  }
+
+  addRelated(sessionId: string, workspaceId: string): WorkspaceView[] {
+    return this.db.transaction(() => {
+      const target = this.resolveRef(workspaceId);
+      if (this.current(sessionId)?.id === target.id)
+        throw new Error('The active workspace is already available to the conversation.');
+      const exists = this.db.one(
+        'SELECT workspace_id FROM companion_related_workspaces WHERE session_id=? AND workspace_id=?',
+        [sessionId, target.id],
+      );
+      const currentCount =
+        this.db.one<{ count: number }>(
+          'SELECT COUNT(*) AS count FROM companion_related_workspaces WHERE session_id=?',
+          [sessionId],
+        )?.count ?? 0;
+      if (!exists && currentCount >= 5)
+        throw new Error('Up to five related workspaces can be added.');
+      this.db.run(
+        'INSERT OR IGNORE INTO companion_related_workspaces(session_id,workspace_id,added_at) VALUES(?,?,?)',
+        [sessionId, target.id, new Date().toISOString()],
+      );
+      return this.related(sessionId);
+    });
+  }
+
+  removeRelated(sessionId: string, workspaceId: string): WorkspaceView[] {
+    return this.db.transaction(() => {
+      this.db.run(
+        'DELETE FROM companion_related_workspaces WHERE session_id=? AND workspace_id=?',
+        [sessionId, workspaceId],
+      );
+      return this.related(sessionId);
+    });
+  }
+
   workspaceForPath(path: string): WorkspaceView | null {
     const target = resolve(path);
     const matches = this.db
