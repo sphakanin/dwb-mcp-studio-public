@@ -27,7 +27,9 @@ try {
     const entry = await store.register({ path: project });
     store.bindKnown('chat-active', entry);
     assert.throws(() => store.archive(entry.id, 'admin'), /still bound/);
-    store.unbind('chat-active');
+    assert.throws(() => store.unbind('chat-active'), /DWB_WORKSPACE_LOCKED/);
+    // Simulate broker retention cleanup, never an in-chat Unbind operation.
+    db.run('DELETE FROM session_workspace_bindings WHERE session_id=?', ['chat-active']);
     store.addRelated('chat-other', entry.id);
     assert.throws(() => store.archive(entry.id, 'admin'), /still bound/);
     store.removeRelated('chat-other', entry.id);

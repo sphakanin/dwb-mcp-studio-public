@@ -111,7 +111,7 @@ export const brokerTools = [
   {
     name: 'workspace',
     description:
-      'When the user gives a working directory, immediately call action=bind with path=<absolute directory>. This registers or reuses that exact folder and binds it to this chat in one step, without asking the user to create a workspace separately. The worker starts in the bound directory; an idle worker is replaced on directory changes. Other chats keep their bindings. This does not expand filesystem policy. Do not infer the workspace from arbitrary file paths.',
+      'Select a workspace for an unselected chat using action=bind with an absolute path or workspace ID. The FIRST selection locks the workspace to this chat. Rebinding the same project is idempotent; switching or unbinding to another workspace is rejected. Start a new ChatGPT chat to work on another project. Other chats keep independent bindings. This does not expand filesystem policy. Never infer a workspace from arbitrary file paths.',
     inputSchema: {
       type: 'object',
       properties: {

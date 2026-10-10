@@ -30,7 +30,7 @@ import {
 import { EventLog } from './event-log.js';
 import { SessionRegistry } from './session-registry.js';
 import { CoreStore } from './core-store.js';
-import { WorkspaceStore, pathWithin } from './workspace-store.js';
+import { WorkspaceStore, pathWithin, WORKSPACE_LOCKED_MESSAGE } from './workspace-store.js';
 import { SkillStore, type SkillPolicy } from './skill-store.js';
 import {
   RECOMMENDED_SKILLS,
@@ -122,6 +122,8 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   const homes = await projectHomes(roots);
   const workspaces = workspaceStore.list();
   const current = workspaceStore.current(sessionId);
+  const contextKey = registry.sessionStatus(sessionId).contextKey;
+  const selectionLocked = Boolean(current || workspaceStore.contextLock(contextKey));
   const isAllowed = (path: string) =>
     roots.some((root) => {
       try {
@@ -135,6 +137,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
     broker: registry.status,
     current,
     workspaces,
+    selectionLocked,
     related: workspaceStore.related(sessionId),
     projectHomes: homes,
     allowedWorkspaceIds: available.map((w) => w.id),
@@ -234,6 +237,14 @@ async function controlTool(
     if (!roots.length)
       throw new Error('DWB Project Launcher needs a configured allowedDirectories policy.');
     let message = '';
+    // Once a chat has chosen a project, do not let project-creation actions
+    // write files first and then fail when they try to change its workspace.
+    if (
+      ['create', 'add_existing'].includes(action) &&
+      (workspaceStore.current(sessionId) ||
+        workspaceStore.contextLock(registry.sessionStatus(sessionId).contextKey))
+    )
+      throw new Error(WORKSPACE_LOCKED_MESSAGE);
     if (action === 'review_workspace') {
       const workspaceId = argText(args.workspace_id);
       const workspace = workspaceStore.exact(workspaceId);
@@ -376,11 +387,14 @@ async function controlTool(
       const workspace = workspaceStore.resolveRef(argText(args.workspace_id));
       await assertAllowedDirectory(workspace.root, roots);
       await registry.workspace(sessionId, { action: 'bind', workspace_id: workspace.id });
-      message = 'Switched to ' + workspace.name;
+      message = 'Workspace selected and locked for this chat: ' + workspace.name;
     } else if (action === 'add_existing') {
       const path = await assertAllowedDirectory(argText(args.path), roots);
       const result = await registry.workspace(sessionId, { action: 'bind', path });
-      message = 'Added and selected ' + String((result as any).workspace?.name ?? 'workspace');
+      message =
+        'Added and locked ' +
+        String((result as any).workspace?.name ?? 'workspace') +
+        ' to this chat';
     } else if (action === 'create') {
       const homes = await projectHomes(roots);
       const created = await createStarterProject({

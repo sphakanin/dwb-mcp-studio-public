@@ -346,6 +346,16 @@
         color: var(--dwb-muted);
         font-size: 12px;
       }
+      .workspace-lock-hint {
+        color: var(--dwb-accent-text);
+        background: var(--dwb-pill-bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 11px;
+        margin: 12px 0 6px;
+        font-size: 12px;
+        line-height: 1.45;
+      }
       .current-name {
         font-size: 18px;
         margin: 0 0 5px;
@@ -560,14 +570,17 @@
 
       <section class="panel">
         <div class="panel-title">
-          <span class="kicker">Current workspace · this chat</span>
-          <span class="pill" id="current-status">Not selected</span>
+          <span class="kicker">Workspace for this chat</span>
+          <span class="pill" id="current-status">Select once</span>
         </div>
         <h2 id="current-name" class="current-name">Connecting…</h2>
         <p class="path-display" id="current-path">Loading local location…</p>
+        <p id="workspace-lock-hint" class="workspace-lock-hint">
+          Your first selection stays fixed for this chat.
+        </p>
         <p id="context-status">The active project is used for the next ChatGPT request.</p>
-        <div class="picker">
-          <label for="project-search" class="kicker">Switch to another project</label>
+        <div class="picker" id="workspace-picker">
+          <label for="project-search" class="kicker">Select a workspace to start this chat</label>
           <input
             id="project-search"
             type="search"
@@ -576,13 +589,15 @@
           />
           <div id="project-results" class="project-results" aria-label="Available workspaces"></div>
           <p class="path-display" id="selected-location">
-            Choose a project above before switching.
+            Choose a project above. Selection cannot be changed in this chat.
           </p>
-          <button id="switch-submit" class="subtle" type="button" disabled>Switch Workspace</button>
+          <button id="switch-submit" class="primary" type="button" disabled>
+            Select &amp; lock workspace
+          </button>
         </div>
       </section>
 
-      <div class="actions">
+      <div class="actions" id="project-creation-actions">
         <button class="action" id="new-toggle" type="button">
           <strong>＋ New Project</strong><small>Create in an approved folder</small>
         </button>
@@ -621,7 +636,7 @@
         <p class="note" id="home-help">
           Creates a new folder, README and starter files. Never overwrites an existing folder.
         </p>
-        <button class="primary" id="create-submit" type="submit">Create & Switch Workspace</button>
+        <button class="primary" id="create-submit" type="submit">Create & lock to this chat</button>
       </form>
 
       <form id="add-form" class="form-panel hidden" autocomplete="off">
@@ -634,7 +649,7 @@
           ><input id="existing-path" required placeholder="C:\Projects\my-app" />
         </div>
         <p class="note">The folder must already exist inside your DWB allowedDirectories.</p>
-        <button class="primary" type="submit">Register & Switch</button>
+        <button class="primary" type="submit">Register & lock to this chat</button>
       </form>
 
       <details id="registry-section" class="manager-section">

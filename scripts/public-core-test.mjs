@@ -197,38 +197,57 @@ try {
     /panel-launch-site/,
   );
   const panelCreatedId = createdViaPanel.structuredContent.currentWorkspace.id;
+  assert.equal(createdViaPanel.structuredContent.selectionLocked, true);
+  await assert.rejects(
+    call(a, 'dwb_companion_action', {
+      action: 'create',
+      home_id: projectHome.id,
+      project_name: 'blocked-after-lock',
+      project_kind: 'blank',
+    }),
+    /DWB_WORKSPACE_LOCKED/,
+  );
+  await assert.rejects(readFile(resolve(testDir, 'blocked-after-lock', 'README.md')), {
+    code: 'ENOENT',
+  });
   const anotherProject = resolve(testDir, 'panel-reference');
   await mkdir(anotherProject);
-  const existingViaPanel = await call(a, 'dwb_companion_action', {
-    action: 'add_existing',
-    path: anotherProject,
-  });
-  assert.equal(existingViaPanel.structuredContent.currentWorkspace.name, 'panel-reference');
+  // After first selection, neither Add Existing nor Switch may redirect this chat.
+  await assert.rejects(
+    call(a, 'dwb_companion_action', { action: 'add_existing', path: anotherProject }),
+    /DWB_WORKSPACE_LOCKED/,
+  );
+  const registered = await call(a, 'workspace', { action: 'register', path: anotherProject });
+  const referenceId = registered.structuredContent.workspace.id;
   const withReference = await call(a, 'dwb_companion_action', {
     action: 'related_add',
-    workspace_id: panelCreatedId,
+    workspace_id: referenceId,
   });
-  assert.equal(withReference.structuredContent.relatedWorkspaces[0].id, panelCreatedId);
-  assert.equal(withReference.structuredContent.currentWorkspace.name, 'panel-reference');
+  assert.equal(withReference.structuredContent.relatedWorkspaces[0].id, referenceId);
+  assert.equal(withReference.structuredContent.currentWorkspace.name, 'panel-launch-site');
   const removedReference = await call(a, 'dwb_companion_action', {
     action: 'related_remove',
-    workspace_id: panelCreatedId,
+    workspace_id: referenceId,
   });
   assert.equal(removedReference.structuredContent.relatedWorkspaces.length, 0);
-  const switchedViaPanel = await call(a, 'dwb_companion_action', {
+  await assert.rejects(
+    call(a, 'dwb_companion_action', { action: 'switch', workspace_id: referenceId }),
+    /DWB_WORKSPACE_LOCKED/,
+  );
+  const sameViaPanel = await call(a, 'dwb_companion_action', {
     action: 'switch',
     workspace_id: panelCreatedId,
   });
-  assert.equal(switchedViaPanel.structuredContent.currentWorkspace.name, 'panel-launch-site');
+  assert.equal(sameViaPanel.structuredContent.currentWorkspace.name, 'panel-launch-site');
+  await assert.rejects(call(a, 'workspace', { action: 'unbind' }), /DWB_WORKSPACE_LOCKED/);
   await assert.rejects(
-    call(a, 'dwb_companion_action', {
+    call(b, 'dwb_companion_action', {
       action: 'add_existing',
       path: resolve(testDir, '..'),
     }),
     /outside DWB allowedDirectories/,
-    'Panel must honor the base directory policy.',
+    'Panel must honor the base directory policy before selecting a project.',
   );
-  await call(a, 'workspace', { action: 'unbind' });
   assert.ok(
     (await call(a, 'dwb_broker_status')).structuredContent.activeWorkers <= workerCountBeforePanel,
     'Project actions may retire idle workers but must not allocate workers.',
@@ -248,8 +267,13 @@ try {
   assert.equal(configA.osHome, homedir());
   assert.equal(configB.osHome, homedir());
   assert.equal(await readFile(resolve(fixture, 'config.js'), 'utf8'), original);
-  const bound = resolve(testDir, 'workspace');
-  await mkdir(bound);
+  const bound = resolve(testDir, 'panel-launch-site');
+  const differentWorkspace = resolve(testDir, 'workspace');
+  await mkdir(differentWorkspace);
+  await assert.rejects(
+    call(a, 'workspace', { action: 'bind', workspace: differentWorkspace }),
+    /DWB_WORKSPACE_LOCKED/,
+  );
   await call(a, 'workspace', { action: 'bind', workspace: bound });
   const reboundConfig = JSON.parse((await call(a, 'get_config')).content[0].text);
   assert.equal(reboundConfig.cwd, bound);
@@ -315,7 +339,7 @@ try {
     ).structuredContent.status,
     'active',
   );
-  assert.notEqual(reboundConfig.pid, configA.pid);
+  assert.equal(reboundConfig.pid, configA.pid, 'Same-workspace bind keeps the active worker');
   assert.equal(JSON.parse((await call(b, 'get_config')).content[0].text).pid, configB.pid);
   await call(a, 'write_file', { path: 'relative.txt', content: 'in the bound workspace' });
   assert.equal(await readFile(resolve(bound, 'relative.txt'), 'utf8'), 'in the bound workspace');

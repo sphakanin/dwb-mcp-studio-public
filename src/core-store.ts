@@ -22,6 +22,8 @@ export class CoreStore {
         PRIMARY KEY(workspace_id,alias), UNIQUE(alias));
       CREATE TABLE IF NOT EXISTS session_workspace_bindings (
         session_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, bound_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS conversation_workspace_locks (
+        context_key TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, selected_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS workspace_events (
         id INTEGER PRIMARY KEY, workspace_id TEXT NOT NULL, ts TEXT NOT NULL, type TEXT NOT NULL,
         session_id TEXT, details_json TEXT);

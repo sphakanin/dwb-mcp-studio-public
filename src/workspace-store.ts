@@ -4,6 +4,9 @@ import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { CoreStore } from './core-store.js';
 import { physicalPath } from './file-observer.js';
 
+export const WORKSPACE_LOCKED_MESSAGE =
+  'DWB_WORKSPACE_LOCKED: This chat is locked to its first workspace. Start a new ChatGPT chat to choose another workspace.';
+
 export type WorkspaceView = {
   id: string;
   name: string;
@@ -366,9 +369,33 @@ export class WorkspaceStore {
     });
   }
 
-  bindKnown(sessionId: string, workspace: WorkspaceView): WorkspaceView {
+  contextLock(contextKey: string | null | undefined): string | null {
+    if (!contextKey) return null;
+    return (
+      this.db.one<{ workspace_id: string }>(
+        'SELECT workspace_id FROM conversation_workspace_locks WHERE context_key=?',
+        [contextKey],
+      )?.workspace_id ?? null
+    );
+  }
+
+  bindKnown(
+    sessionId: string,
+    workspace: WorkspaceView,
+    contextKey: string | null = null,
+  ): WorkspaceView {
     return this.db.transaction(() => {
+      const current = this.current(sessionId);
+      const lockedId = this.contextLock(contextKey);
+      if ((current && current.id !== workspace.id) || (lockedId && lockedId !== workspace.id))
+        throw new Error(WORKSPACE_LOCKED_MESSAGE);
       const now = new Date().toISOString();
+      if (contextKey && !lockedId)
+        this.db.run(
+          'INSERT INTO conversation_workspace_locks(context_key,workspace_id,selected_at) VALUES(?,?,?)',
+          [contextKey, workspace.id, now],
+        );
+      if (current) return current;
       this.db.run(
         [
           'INSERT INTO session_workspace_bindings(session_id,workspace_id,bound_at,updated_at) VALUES (?,?,?,?)',
@@ -404,13 +431,21 @@ export class WorkspaceStore {
     return this.bindKnown(sessionId, await this.resolveBinding(args, sessionId));
   }
 
-  unbind(sessionId: string) {
-    return this.db.transaction(() => {
+  // Broker-only lifecycle cleanup; this is NOT an in-chat Unbind action.
+  // Keep conversation_workspace_locks so reopening the same chat cannot reselect.
+  releaseExpiredSession(sessionId: string): void {
+    this.db.transaction(() => {
       const current = this.current(sessionId);
+      this.db.run('DELETE FROM companion_related_workspaces WHERE session_id=?', [sessionId]);
       this.db.run('DELETE FROM session_workspace_bindings WHERE session_id=?', [sessionId]);
-      if (current) this.event(current.id, 'unbound', sessionId, {});
-      return { unbound: Boolean(current), previous: current };
+      if (current) this.event(current.id, 'session_binding_expired', sessionId);
     });
+  }
+
+  unbind(sessionId: string) {
+    const current = this.current(sessionId);
+    if (current) throw new Error(WORKSPACE_LOCKED_MESSAGE);
+    return { unbound: false, previous: null };
   }
 
   async handle(args: Record<string, unknown>, sessionId: string) {

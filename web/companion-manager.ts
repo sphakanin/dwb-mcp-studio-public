@@ -23,6 +23,7 @@ export type ManagerReview = {
 export type ManagerData = {
   workspaces: ManagedWorkspace[];
   currentWorkspace: { id: string; name: string; path: string } | null;
+  selectionLocked?: boolean;
   allowedDirectories: string[];
   policyError: string | null;
   broker?: { activeWorkers: number };
@@ -53,15 +54,38 @@ export function createWorkspaceManager(
 
   function updateCurrent() {
     const current = data?.currentWorkspace;
-    byId('current-name').textContent = current?.name || 'No workspace selected';
-    byId('current-path').textContent = current?.path || 'Select a project to begin.';
-    byId('current-status').textContent = current ? 'Active in this chat' : 'Not selected';
+    const locked = data?.selectionLocked === true || Boolean(current);
+    byId('current-name').textContent =
+      current?.name ||
+      (locked ? 'Previously selected workspace unavailable' : 'No workspace selected');
+    byId('current-path').textContent =
+      current?.path ||
+      (locked
+        ? 'Your chat is still locked. Start a new chat to select another project.'
+        : 'Choose one workspace to begin this chat.');
+    byId('current-status').textContent = locked ? '🔒 Locked for this chat' : 'Select once';
+    byId('workspace-lock-hint').textContent = locked
+      ? 'This chat is permanently linked to its first workspace. To work on another project, start a new ChatGPT chat.'
+      : 'Your first selection will be locked to this chat. You cannot change it later.';
+    byId('workspace-picker').classList.toggle('hidden', locked);
+    byId('project-creation-actions').classList.toggle('hidden', locked);
+    if (locked) {
+      byId('create-form').classList.add('hidden');
+      byId('add-form').classList.add('hidden');
+    }
   }
 
   function renderPicker() {
     const container = byId('project-results');
     container.replaceChildren();
     if (!data) return;
+    const locked = data.selectionLocked === true || Boolean(data.currentWorkspace);
+    (byId('project-search') as HTMLInputElement).disabled = locked;
+    if (locked) {
+      selectedId = null;
+      (byId('switch-submit') as HTMLButtonElement).disabled = true;
+      return;
+    }
     const query = (byId('project-search') as HTMLInputElement).value.trim().toLowerCase();
     const candidates = data.workspaces.filter(
       (w) =>
@@ -91,7 +115,7 @@ export function createWorkspaceManager(
     const selected = data.workspaces.find((w) => w.id === selectedId);
     byId('selected-location').textContent = selected
       ? selected.path
-      : 'Choose a project above before switching.';
+      : 'Choose a project above. Your selection will be permanent in this chat.';
   }
   function renderRegistry() {
     const container = byId('registry-list');
@@ -245,7 +269,7 @@ export function createWorkspaceManager(
     review = next.review ?? null;
     if (selectedId && !next.workspaces.some((w) => w.id === selectedId && w.status === 'ready'))
       selectedId = null;
-    if (selectedId === next.currentWorkspace?.id) selectedId = null;
+    if (next.selectionLocked || selectedId === next.currentWorkspace?.id) selectedId = null;
     updateCurrent();
     renderPicker();
     renderRegistry();

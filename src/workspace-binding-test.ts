@@ -56,6 +56,14 @@ test('explicit directory registers and binds the exact child, leaving unspecifie
     const id = await f.registry.attach(f.root, 1);
     assert.equal(f.store.current(id), null);
     await f.store.register({ path: f.root });
+    await assert.rejects(
+      f.registry.workspace(id, { action: 'bind', path: resolve(f.root, 'missing') }),
+      /existing directory/,
+    );
+    await assert.rejects(
+      f.registry.workspace(id, { action: 'bind', path: 'relative' }),
+      /absolute/,
+    );
     await f.registry.workspace(id, { action: 'bind', path: f.a });
     assert.equal(f.store.current(id)?.root, f.a);
     assert.equal(f.registry.sessionStatus(id).workingDirectory, f.a);
@@ -71,13 +79,10 @@ test('explicit directory registers and binds the exact child, leaving unspecifie
     assert.equal(f.store.current(id)?.id, workspaceId);
     assert.equal(f.workers[0].stopped, false, 'Same directory must not replace a warm worker');
     await assert.rejects(
-      f.registry.workspace(id, { action: 'bind', path: resolve(f.root, 'missing') }),
-      /existing directory/,
+      f.registry.workspace(id, { action: 'bind', path: f.b }),
+      /DWB_WORKSPACE_LOCKED/,
     );
-    await assert.rejects(
-      f.registry.workspace(id, { action: 'bind', path: 'relative' }),
-      /absolute/,
-    );
+    await assert.rejects(f.registry.workspace(id, { action: 'unbind' }), /DWB_WORKSPACE_LOCKED/);
     assert.equal(f.store.current(id)?.root, f.a);
   } finally {
     await f.registry.shutdown();
@@ -85,12 +90,12 @@ test('explicit directory registers and binds the exact child, leaving unspecifie
   }
 });
 
-test('directory changes replace only the current idle worker; busy work is preserved', async () => {
+test('one chat cannot switch or unbind, but another chat selects independently', async () => {
   const f = await fixture();
   try {
     const a = await f.registry.attach(f.root, 1);
     const b = await f.registry.attach(f.root, 2);
-    // Both projects have the same basename: paths must still bind without alias collisions.
+    // Both projects have the same basename: the physical paths remain distinct.
     await f.registry.workspace(a, { action: 'bind', path: f.a });
     await f.registry.workspace(b, { action: 'bind', path: f.b });
     await f.registry.listTools(a);
@@ -98,31 +103,26 @@ test('directory changes replace only the current idle worker; busy work is prese
     f.workers[0].active = true;
     await assert.rejects(
       f.registry.workspace(a, { action: 'bind', path: f.b }),
-      /active processes/,
+      /DWB_WORKSPACE_LOCKED/,
     );
+    await assert.rejects(f.registry.workspace(a, { action: 'unbind' }), /DWB_WORKSPACE_LOCKED/);
     assert.equal(f.store.current(a)?.root, f.a);
     assert.equal(f.workers[0].stopped, false);
     f.workers[0].active = false;
-    let release!: () => void;
-    f.workers[0].probeGate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const changing = f.registry.workspace(a, { action: 'bind', path: f.b });
-    try {
-      await assert.rejects(f.registry.listTools(a), /Workspace is changing/);
-      await assert.rejects(f.registry.restartWorker(a), /busy/);
-    } finally {
-      release();
-    }
-    await changing;
-    await f.registry.listTools(a);
-    assert.equal(f.workers[0].stopped, true);
-    assert.equal(f.workers[1].stopped, false);
+    await assert.rejects(
+      f.registry.workspace(a, { action: 'bind', path: f.b }),
+      /DWB_WORKSPACE_LOCKED/,
+      'Idleness must not unlock a workspace.',
+    );
+    await f.registry.workspace(a, { action: 'bind', path: f.a });
+    assert.equal(f.workers[0].stopped, false, 'Same-project bind must not restart the worker');
+    const c = await f.registry.attach(f.root, 3);
+    assert.equal(f.store.current(c), null);
+    await f.registry.workspace(c, { action: 'bind', path: f.b });
+    await f.registry.listTools(c);
     assert.equal(f.workers[2].context.workspaceKey, f.b);
-    await f.registry.workspace(a, { action: 'unbind' });
-    await f.registry.listTools(a);
-    assert.equal(f.workers[3].context.workspaceKey, f.root);
     assert.equal(f.store.current(b)?.root, f.b);
+    assert.equal(f.store.current(a)?.root, f.a);
   } finally {
     await f.registry.shutdown();
     f.db.close();
@@ -143,6 +143,63 @@ test('workspace binding survives broker recovery and launches the next worker in
     assert.equal(f.workers[0].context.workspaceKey, f.a);
   } finally {
     await restored?.shutdown();
+    await f.registry.shutdown();
+    f.db.close();
+  }
+});
+
+test('conversation locks survive session expiry and allow independent new-chat selection', async () => {
+  const f = await fixture();
+  let reopened: InstanceType<typeof SessionRegistry> | undefined;
+  const contextA = { key: 'meta.conversation_id:chat-project-a', source: 'meta.conversation_id' };
+  const contextB = { key: 'meta.conversation_id:chat-project-b', source: 'meta.conversation_id' };
+  try {
+    const transport = await f.registry.attach(f.root, 1);
+    const sessionA = await f.registry.resolveContext(transport, contextA);
+    await f.registry.workspace(sessionA, { action: 'bind', path: f.a });
+    assert.equal(f.store.contextLock(contextA.key), f.store.current(sessionA)?.id);
+    const sessionB = await f.registry.resolveContext(transport, contextB);
+    assert.notEqual(sessionA, sessionB);
+    assert.equal(f.store.current(sessionB), null, 'A new chat starts unselected');
+    await f.registry.workspace(sessionB, { action: 'bind', path: f.b });
+    await assert.rejects(
+      f.registry.workspace(sessionA, { action: 'bind', path: f.b }),
+      /DWB_WORKSPACE_LOCKED/,
+    );
+    await f.registry.shutdown();
+    // Session cleanup frees the active registry binding, but NOT the conversation lock.
+    f.store.releaseExpiredSession(sessionA);
+    assert.equal(f.store.current(sessionA), null);
+    assert.ok(f.store.contextLock(contextA.key));
+    // Simulate a cleared broker session registry with the same durable SQLite DB.
+    reopened = new SessionRegistry(f.log, f.store, f.factory);
+    const freshTransport = await reopened.attach(f.root, 2);
+    const restoredA = await reopened.resolveContext(freshTransport, contextA);
+    assert.equal(f.store.current(restoredA)?.root, f.a);
+    await assert.rejects(
+      reopened.workspace(restoredA, { action: 'bind', path: f.b }),
+      /DWB_WORKSPACE_LOCKED/,
+    );
+    const restoredB = await reopened.resolveContext(freshTransport, contextB);
+    assert.equal(f.store.current(restoredB)?.root, f.b);
+  } finally {
+    await reopened?.shutdown();
+    await f.registry.shutdown();
+    f.db.close();
+  }
+});
+
+test('resume cannot replace a chat that already selected a project', async () => {
+  const f = await fixture();
+  try {
+    const active = await f.registry.attach(f.root, 1);
+    const detached = await f.registry.attach(f.root, 2);
+    await f.registry.workspace(active, { action: 'bind', path: f.a });
+    await f.registry.workspace(detached, { action: 'bind', path: f.b });
+    await f.registry.detach(detached);
+    await assert.rejects(f.registry.resume(active, detached, 1), /DWB_WORKSPACE_LOCKED/);
+    assert.equal(f.store.current(active)?.root, f.a);
+  } finally {
     await f.registry.shutdown();
     f.db.close();
   }

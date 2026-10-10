@@ -22,7 +22,7 @@ export const companionTools = [
     name: 'dwb_companion_action',
     title: 'DWB Project Launcher action',
     description:
-      'Perform one user-selected action from the DWB Companion panel: create, switch, add existing, or manage related workspaces.',
+      'Perform a user-confirmed DWB Companion action. A chat may select its primary workspace only once; subsequent changes require a new chat.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -87,6 +87,7 @@ export function makeCompanionSnapshot(input: {
   projectHomes?: Array<{ id: string; name: string }>;
   related?: Workspace[];
   allowedWorkspaceIds?: string[];
+  selectionLocked?: boolean;
 }) {
   const broker = input.broker;
   const runtime = broker.runtime as { version?: string } | undefined;
@@ -104,6 +105,7 @@ export function makeCompanionSnapshot(input: {
         (broker.persistence as { healthy?: boolean } | undefined)?.healthy === true,
     },
     currentWorkspace: input.current ? { id: input.current.id, name: input.current.name } : null,
+    selectionLocked: input.selectionLocked === true || Boolean(input.current),
     projectHomes: (input.projectHomes ?? []).map((home) => ({ id: home.id, name: home.name })),
     relatedWorkspaces: (input.related ?? []).slice(0, 5).map((w) => ({ id: w.id, name: w.name })),
     workspaces: input.workspaces.slice(0, 50).map((w) => ({

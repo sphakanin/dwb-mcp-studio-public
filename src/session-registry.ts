@@ -1,6 +1,8 @@
 import { runtimeIdentity } from './runtime-identity.js';
 import { RequestLifetime } from './request-lifetime.js';
 import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { BrokerLogicalContext } from './broker-protocol.js';
 import { loadBrokerState, saveBrokerState, type PersistedSession } from './broker-state.js';
@@ -11,11 +13,12 @@ import {
   planTool,
   sameFingerprint,
   StaleFileConflictError,
+  physicalPath,
   type FileFingerprint,
 } from './file-observer.js';
 import { LockManager } from './lock-manager.js';
 import { WorkerSupervisor, type WorkerContext } from './worker-supervisor.js';
-import { WorkspaceStore } from './workspace-store.js';
+import { WorkspaceStore, WORKSPACE_LOCKED_MESSAGE, type WorkspaceView } from './workspace-store.js';
 
 type SessionState = 'attached' | 'detached';
 type WorkerAllocation = { worker: WorkerSupervisor; queueMs: number };
@@ -300,6 +303,48 @@ export class SessionRegistry {
     return id;
   }
 
+  private async restoreConversationSelection(session: Session): Promise<void> {
+    const store = this.workspaceStore;
+    if (!store || !session.contextKey) return;
+    const selected = store.current(session.id);
+    const lockedId = store.contextLock(session.contextKey);
+    if (selected && lockedId && selected.id !== lockedId) throw new Error(WORKSPACE_LOCKED_MESSAGE);
+    if (selected && !lockedId) {
+      // Upgrade an existing binding to a durable conversation lock.
+      store.bindKnown(session.id, selected, session.contextKey);
+      return;
+    }
+    if (!lockedId || selected) return;
+    // The original session may have been cleaned up. Preserve the previous selection
+    // when this chat reconnects, but never switch to a different project.
+    const previous = store.list().find((item) => item.id === lockedId);
+    if (!previous || previous.archivedAt) return;
+    if (!(await stat(previous.root).catch(() => null))?.isDirectory()) return;
+    store.bindKnown(session.id, previous, session.contextKey);
+  }
+
+  private matchesSelectedWorkspace(
+    args: Record<string, unknown>,
+    workspace: WorkspaceView,
+  ): boolean {
+    const ref = [args.path, args.workspace, args.workspace_id, args.name]
+      .find((item): item is string => typeof item === 'string' && !!item.trim())
+      ?.trim();
+    if (!ref) return false;
+    if (isAbsolute(ref)) {
+      try {
+        return physicalPath(ref) === physicalPath(workspace.root);
+      } catch {
+        return false;
+      }
+    }
+    try {
+      return this.workspaceStore?.resolveRef(ref).id === workspace.id;
+    } catch {
+      return false;
+    }
+  }
+
   async resolveContext(rootId: string, context?: BrokerLogicalContext | null): Promise<string> {
     const root = this.require(rootId);
     if (!context?.key) return root.id;
@@ -327,6 +372,7 @@ export class SessionRegistry {
       existing.lastActivityAt = new Date().toISOString();
       existing.contextSource = context.source;
       existing.contextPreview = context.preview ?? existing.contextPreview;
+      await this.restoreConversationSelection(existing);
       await this.log.write({
         type: 'logical_context_recovered',
         sessionId: existing.id,
@@ -345,6 +391,7 @@ export class SessionRegistry {
       root.contextSource = context.source;
       root.contextPreview = context.preview ?? null;
       root.lastActivityAt = new Date().toISOString();
+      await this.restoreConversationSelection(root);
       await this.log.write({
         type: 'logical_context_bound',
         sessionId: root.id,
@@ -384,6 +431,7 @@ export class SessionRegistry {
       queuedAt: null,
       cleanupTimer: null,
     });
+    await this.restoreConversationSelection(this.sessions.get(id)!);
     await this.log.write({
       type: 'logical_context_attached',
       sessionId: id,
@@ -487,6 +535,7 @@ export class SessionRegistry {
     session.cleanupTimer = null;
     this.sessions.delete(session.id);
     if (session.worker) await this.retireWorker(session);
+    this.workspaceStore?.releaseExpiredSession(session.id);
     await this.log
       .write({
         type: 'session_destroyed',
@@ -516,35 +565,66 @@ export class SessionRegistry {
     const action = String(args.action ?? '').trim();
     if (action !== 'bind' && action !== 'unbind') return store.handle(args, id);
     this.assertAttached(session);
+    const selected = store.current(id);
+    const persistentLockId = store.contextLock(session.contextKey);
+    if (persistentLockId && selected && persistentLockId !== selected.id)
+      throw new Error(WORKSPACE_LOCKED_MESSAGE);
+    const lockedId = persistentLockId ?? selected?.id ?? null;
+    if (action === 'unbind' && lockedId) throw new Error(WORKSPACE_LOCKED_MESSAGE);
+    if (action === 'bind' && lockedId) {
+      const lockedWorkspace = store.list().find((item) => item.id === lockedId);
+      if (!lockedWorkspace || !this.matchesSelectedWorkspace(args, lockedWorkspace))
+        throw new Error(WORKSPACE_LOCKED_MESSAGE);
+      if (selected) {
+        // Idempotent bind of the SAME project is safe, even with a running worker.
+        if (session.contextKey && !persistentLockId)
+          store.bindKnown(id, selected, session.contextKey);
+        return {
+          workspace: selected,
+          workingDirectory: selected.root,
+          workerReady: !!session.worker,
+          persistence: this.status.persistence,
+          locked: true,
+        };
+      }
+      if (lockedWorkspace.archivedAt) throw new Error(WORKSPACE_LOCKED_MESSAGE);
+    }
     if (
       session.inFlight ||
       session.allocationPromise ||
       session.retirement ||
       session.changingWorkspace
     )
-      throw new Error('Session is busy; wait for current requests before changing workspace');
+      throw new Error('Session is busy; wait for current requests before selecting a workspace');
     session.changingWorkspace = true;
     session.inFlight++;
     try {
-      const workspace = action === 'bind' ? await store.resolveBinding(args, id) : null;
+      // Resolve a pre-existing conversation lock by ID, never register a different path.
+      const workspace =
+        action === 'bind'
+          ? await store.resolveBinding(lockedId ? { workspace_id: lockedId } : args, id)
+          : null;
       const directory = workspace?.root ?? session.workspaceKey;
       this.assertAttached(session);
       if (directory !== this.workingDirectory(session) && session.worker) {
         if (await session.worker.hasActiveWork().catch(() => true))
           throw new Error(
-            'Worker has active processes or searches; finish them before changing workspace',
+            'Worker has active processes or searches; finish them before selecting a workspace',
           );
         this.assertAttached(session);
         await this.retireWorker(session);
         this.assertAttached(session);
       }
-      const result = workspace ? { workspace: store.bindKnown(id, workspace) } : store.unbind(id);
+      const result = workspace
+        ? { workspace: store.bindKnown(id, workspace, session.contextKey) }
+        : store.unbind(id);
       await this.persistState();
       return {
         ...result,
         workingDirectory: directory,
         workerReady: !!session.worker,
         persistence: this.status.persistence,
+        locked: Boolean(workspace),
       };
     } finally {
       session.changingWorkspace = false;
@@ -972,6 +1052,11 @@ export class SessionRegistry {
     if (currentId === targetId) return currentId;
     const current = this.require(currentId);
     const target = this.require(targetId);
+    if (
+      this.workspaceStore?.current(currentId) ||
+      this.workspaceStore?.contextLock(current.contextKey)
+    )
+      throw new Error(WORKSPACE_LOCKED_MESSAGE);
     if (target.state !== 'detached') throw new Error('Target session is not detached');
     if (target.inFlight || target.allocationPromise || target.retirement)
       throw new Error('Target session is busy; retry when its requests finish');
@@ -988,6 +1073,11 @@ export class SessionRegistry {
         );
       this.assertAttached(current);
       if (target.state !== 'detached') throw new Error('Target session is no longer detached');
+      // Resume into an unselected chat counts as its FIRST project choice.
+      // Preserve the durable lock for this chat even after its MCP session expires.
+      const targetWorkspace = this.workspaceStore?.current(target.id);
+      if (targetWorkspace && current.contextKey)
+        this.workspaceStore?.bindKnown(target.id, targetWorkspace, current.contextKey);
       // A resumed session belongs to the requesting chat from now on. Preserve its
       // workspace/worker, but replace the old chat key so the next request stays here.
       target.contextKey = current.contextKey;
