@@ -2,8 +2,8 @@ import { RequestLifetime } from './request-lifetime.js';
 import { acquireUnixBrokerLease } from './unix-broker-lease.js';
 import { runtimeIdentity, sameRuntimePath } from './runtime-identity.js';
 import { createServer, type Socket } from 'node:net';
-import { chmod, lstat, mkdir, readFile, unlink } from 'node:fs/promises';
-import { dirname, isAbsolute } from 'node:path';
+import { chmod, lstat, mkdir, readFile, stat, unlink } from 'node:fs/promises';
+import { dirname, isAbsolute, basename } from 'node:path';
 import {
   brokerEndpoint,
   BROKER_PROTOCOL_VERSION,
@@ -13,6 +13,14 @@ import {
 } from './broker-protocol.js';
 import { brokerTools, textResult, NOT_A_CONTROL_TOOL } from './broker-tools.js';
 import { COMPANION_URI, COMPANION_MIME, makeCompanionSnapshot } from './companion-panel.js';
+import { randomUUID } from 'node:crypto';
+import {
+  readBasePolicy,
+  planRootChange,
+  applyRootPlan,
+  type RootOperation,
+  type RootPlan,
+} from './companion-access.js';
 import {
   allowedRoots,
   assertAllowedDirectory,
@@ -39,6 +47,18 @@ let coreDb: CoreStore;
 let workspaceStore: WorkspaceStore;
 let skillStore: SkillStore;
 let registry: SessionRegistry;
+type WorkspaceOperation = 'archive' | 'restore' | 'unregister' | 'relink';
+type PendingReview = {
+  token: string;
+  expiresAt: number;
+  operation: WorkspaceOperation | RootOperation;
+  workspaceId?: string;
+  workspaceVersion?: string;
+  archivedAt?: string | null;
+  path?: string;
+  rootPlan?: RootPlan;
+};
+const pendingReviews = new Map<string, PendingReview>();
 const sockets = new Set<Socket>();
 let markReady!: () => void;
 const ready = new Promise<void>((resolve) => {
@@ -97,13 +117,21 @@ function requestContext(message: BrokerRequest): BrokerLogicalContext | null {
   };
 }
 
-async function companionSnapshot(sessionId: string) {
+async function companionSnapshot(sessionId: string, appDetails = false) {
   const roots = await allowedRoots();
   const homes = await projectHomes(roots);
   const workspaces = workspaceStore.list();
   const current = workspaceStore.current(sessionId);
-  const available = workspaces.filter((w) => roots.some((root) => pathWithin(root, w.root)));
-  return makeCompanionSnapshot({
+  const isAllowed = (path: string) =>
+    roots.some((root) => {
+      try {
+        return pathWithin(root, path);
+      } catch {
+        return false;
+      }
+    });
+  const available = workspaces.filter((w) => !w.archivedAt && isAllowed(w.root));
+  const common = makeCompanionSnapshot({
     broker: registry.status,
     current,
     workspaces,
@@ -116,6 +144,43 @@ async function companionSnapshot(sessionId: string) {
       workspaceName: workspaceStore.current(String(session.sessionId))?.name ?? null,
     })),
   });
+  // The model-visible launch result stays path-redacted. Only app-only tools receive paths.
+  if (!appDetails) return common;
+  const details = await Promise.all(
+    workspaces.map(async (w) => {
+      const exists = (await stat(w.root).catch(() => null))?.isDirectory() === true;
+      const status = w.archivedAt
+        ? 'archived'
+        : !exists
+          ? 'missing'
+          : isAllowed(w.root)
+            ? 'ready'
+            : 'outside';
+      return {
+        id: w.id,
+        name: w.name,
+        path: w.root,
+        parent: basename(dirname(w.root)),
+        status,
+        archivedAt: w.archivedAt,
+        usage: workspaceStore.usage(w.id),
+      };
+    }),
+  );
+  let allowedDirectories: string[] = [];
+  let policyError: string | null = null;
+  try {
+    allowedDirectories = (await readBasePolicy()).roots;
+  } catch (error) {
+    policyError = String(error);
+  }
+  return {
+    ...common,
+    currentWorkspace: current ? { id: current.id, name: current.name, path: current.root } : null,
+    workspaces: details,
+    allowedDirectories,
+    policyError,
+  };
 }
 
 async function controlTool(
@@ -162,13 +227,151 @@ async function controlTool(
     });
   }
   if (name === 'dwb_companion' || name === 'dwb_companion_snapshot')
-    return textResult(await companionSnapshot(sessionId));
+    return textResult(await companionSnapshot(sessionId, name === 'dwb_companion_snapshot'));
   if (name === 'dwb_companion_action') {
     const action = argText(args.action);
     const roots = await allowedRoots();
     if (!roots.length)
       throw new Error('DWB Project Launcher needs a configured allowedDirectories policy.');
     let message = '';
+    if (action === 'review_workspace') {
+      const workspaceId = argText(args.workspace_id);
+      const workspace = workspaceStore.exact(workspaceId);
+      const operation = argText(args.operation) as WorkspaceOperation;
+      if (!['archive', 'restore', 'unregister', 'relink'].includes(operation))
+        throw new Error('Invalid workspace management action.');
+      const usage = workspaceStore.usage(workspace.id);
+      if (operation !== 'restore' && (usage.bindings || usage.references))
+        throw new Error(
+          'Workspace is still used by a session/reference. Remove the binding first.',
+        );
+      if (operation === 'unregister' && !workspace.archivedAt)
+        throw new Error('Archive the workspace before unregistering it.');
+      if (operation === 'archive' && workspace.archivedAt)
+        throw new Error('Workspace is already archived.');
+      if (operation === 'restore' && !workspace.archivedAt)
+        throw new Error('Workspace is not archived.');
+      const path =
+        operation === 'relink'
+          ? await assertAllowedDirectory(argText(args.path), roots)
+          : undefined;
+      const review: PendingReview = {
+        token: randomUUID(),
+        operation,
+        workspaceId,
+        workspaceVersion: workspace.updatedAt,
+        archivedAt: workspace.archivedAt,
+        path,
+        expiresAt: Date.now() + 300_000,
+      };
+      pendingReviews.set(sessionId, review);
+      return textResult({
+        ...(await companionSnapshot(sessionId, true)),
+        review: {
+          token: review.token,
+          operation,
+          title: operation + ' ' + workspace.name,
+          description:
+            operation === 'unregister'
+              ? 'Remove only the DWB registry record; physical files will not be deleted.'
+              : operation === 'relink'
+                ? 'Keep workspace ID and change its registered path. No files are moved.'
+                : 'Only the DWB workspace registry is changed; physical files remain intact.',
+          target: workspace.name,
+          path: path ?? workspace.root,
+          impact: usage,
+          expiresInSeconds: 300,
+        },
+      });
+    }
+    if (action === 'review_root') {
+      const operation = argText(args.operation) as RootOperation;
+      if (operation !== 'root_add' && operation !== 'root_remove')
+        throw new Error('Invalid allowed directory operation.');
+      const plan = await planRootChange(operation, argText(args.path), workspaceStore.list());
+      const review: PendingReview = {
+        token: randomUUID(),
+        operation,
+        rootPlan: plan,
+        expiresAt: Date.now() + 300_000,
+      };
+      pendingReviews.set(sessionId, review);
+      return textResult({
+        ...(await companionSnapshot(sessionId, true)),
+        review: {
+          token: review.token,
+          operation,
+          title: operation.replace('_', ' ') + ': ' + plan.path,
+          description:
+            'This changes the local base policy. Active workers must be stopped first. Restart DWB MCP after applying to load the new policy.',
+          target: plan.path,
+          path: plan.path,
+          impact: { affectedWorkspaces: plan.affected },
+          expiresInSeconds: 300,
+        },
+      });
+    }
+    if (action === 'apply_review') {
+      const pending = pendingReviews.get(sessionId);
+      if (
+        !pending ||
+        pending.token !== argText(args.review_token) ||
+        pending.expiresAt < Date.now()
+      )
+        throw new Error('Review expired or does not match. Preview this change again.');
+      pendingReviews.delete(sessionId);
+      let message: string;
+      if (pending.rootPlan) {
+        const brokerStatus = registry.status;
+        if (
+          brokerStatus.activeWorkers ||
+          brokerStatus.startingWorkers ||
+          brokerStatus.stoppingWorkers ||
+          brokerStatus.inFlightCalls ||
+          brokerStatus.queueDepth
+        )
+          throw new Error(
+            'Stop active/starting DWB workers and finish queued requests before editing allowed directories.',
+          );
+        const occupiedIds = new Set(
+          registry.listSessions().flatMap((entry) => {
+            const current = workspaceStore.current(String(entry.sessionId));
+            return current ? [current.id] : [];
+          }),
+        );
+        if (pending.rootPlan.affected.some((w) => occupiedIds.has(w.id)))
+          throw new Error(
+            'An affected workspace is still selected by a connected or resumable session.',
+          );
+        const applied = await applyRootPlan(pending.rootPlan);
+        coreDb.run(
+          'INSERT INTO companion_policy_events(ts,session_id,action,old_revision,new_revision) VALUES(?,?,?,?,?)',
+          [
+            new Date().toISOString(),
+            sessionId,
+            pending.operation,
+            applied.previousRevision,
+            applied.revision,
+          ],
+        );
+        message = 'Allowed directories saved. Restart DWB MCP so every worker uses the new policy.';
+      } else {
+        const workspace = workspaceStore.exact(pending.workspaceId!);
+        if (
+          workspace.updatedAt !== pending.workspaceVersion ||
+          workspace.archivedAt !== pending.archivedAt
+        )
+          throw new Error('Workspace changed since review. Preview again.');
+        if (pending.operation === 'archive') workspaceStore.archive(workspace.id, sessionId);
+        else if (pending.operation === 'restore') workspaceStore.restore(workspace.id, sessionId);
+        else if (pending.operation === 'unregister')
+          workspaceStore.unregister(workspace.id, sessionId);
+        else if (pending.operation === 'relink')
+          await workspaceStore.relink(workspace.id, pending.path!, sessionId);
+        message = pending.operation + ' completed for ' + workspace.name + ' (registry only).';
+      }
+      return textResult({ ...(await companionSnapshot(sessionId, true)), message });
+    }
     if (action === 'switch') {
       const workspace = workspaceStore.resolveRef(argText(args.workspace_id));
       await assertAllowedDirectory(workspace.root, roots);
@@ -213,7 +416,7 @@ async function controlTool(
     } else {
       throw new Error('Unsupported DWB Companion action.');
     }
-    return textResult({ ...(await companionSnapshot(sessionId)), message });
+    return textResult({ ...(await companionSnapshot(sessionId, true)), message });
   }
   if (name === 'skills') {
     const action = argText(args.action);

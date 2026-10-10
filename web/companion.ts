@@ -5,8 +5,14 @@ import {
   applyHostFonts,
   applyHostStyleVariables,
 } from '@modelcontextprotocol/ext-apps';
+import {
+  createWorkspaceManager,
+  type ManagerData,
+  type ManagerAction,
+  type ManagerReview,
+} from './companion-manager.js';
 
-type Workspace = { id: string; name: string; available?: boolean };
+type Workspace = { id: string; name: string; available?: boolean; status?: string; path?: string };
 type Skill = { id: string; name: string; policy: string };
 type Session = {
   state: string;
@@ -31,6 +37,9 @@ type Snapshot = {
   };
   currentWorkspace: Workspace | null;
   workspaces: Workspace[];
+  allowedDirectories?: string[];
+  policyError?: string | null;
+  review?: ManagerReview;
   projectHomes: Home[];
   relatedWorkspaces: Workspace[];
   skills: Skill[];
@@ -53,6 +62,10 @@ let snapshot: Snapshot | null = null;
 let app: App | null = null;
 let connected = false;
 let busy = false;
+const manager = createWorkspaceManager(
+  (payload) => runAction(payload),
+  () => busy,
+);
 
 function parseResult(result: unknown): Snapshot | null {
   if (!result || typeof result !== 'object') return null;
@@ -136,19 +149,7 @@ function render() {
   setText('queue', String(s.broker.queueDepth));
   setText('skills-count', String(s.skills.length) + ' installed');
   setText('session-count', String(s.sessions.length));
-  setText('active-status', s.currentWorkspace ? 'Selected' : 'Not selected');
-  const active = select('active-picker');
-  fillSelect(
-    active,
-    s.workspaces.map((w) => ({
-      value: w.id,
-      title: w.name + (w.available === false ? ' · restricted' : ''),
-      disabled: w.available === false,
-    })),
-    'No registered workspaces',
-  );
-  if (s.currentWorkspace) active.value = s.currentWorkspace.id;
-  else active.selectedIndex = -1;
+  if (s.allowedDirectories) manager.render(s as unknown as ManagerData);
 
   const home = select('home-picker');
   fillSelect(
@@ -192,7 +193,14 @@ function render() {
   const reference = select('related-picker');
   const already = new Set(s.relatedWorkspaces.map((w) => w.id));
   const choices = s.workspaces
-    .filter((w) => w.id !== s.currentWorkspace?.id && w.available !== false && !already.has(w.id))
+    .filter(
+      (w) =>
+        w.id !== s.currentWorkspace?.id &&
+        w.available !== false &&
+        w.status !== 'archived' &&
+        w.status !== 'missing' &&
+        !already.has(w.id),
+    )
     .map((w) => ({ value: w.id, title: w.name }));
   fillSelect(reference, choices, 'No other accessible workspace');
   button('related-add').disabled = !connected || busy || !choices.length;
@@ -287,7 +295,7 @@ type Action = {
   path?: string;
 };
 
-async function runAction(payload: Action) {
+async function runAction(payload: Action | ManagerAction) {
   if (!app || !connected || busy) return;
   busy = true;
   render();
@@ -300,7 +308,11 @@ async function runAction(payload: Action) {
     notice(next.message || 'Updated');
     if (payload.action === 'create') get('create-form').classList.add('hidden');
     if (payload.action === 'add_existing') get('add-form').classList.add('hidden');
-    await syncModelContext();
+    if (next.review) get('review-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (
+      ['switch', 'create', 'add_existing', 'related_add', 'related_remove'].includes(payload.action)
+    )
+      await syncModelContext();
   } catch (err) {
     notice('Unable to update project: ' + String(err), true);
   } finally {
@@ -346,10 +358,7 @@ async function continueWithChat() {
 }
 
 button('refresh').addEventListener('click', () => void refresh());
-select('active-picker').addEventListener('change', () => {
-  const id = select('active-picker').value;
-  if (id) void runAction({ action: 'switch', workspace_id: id });
-});
+// Switching projects is deliberate: the searchable picker asks for a second click.
 button('new-toggle').addEventListener('click', () => {
   get('add-form').classList.add('hidden');
   get('create-form').classList.toggle('hidden');
@@ -428,7 +437,8 @@ void (async () => {
     setText('boot-status', 'ChatGPT connected · loading workspace data…');
     // Reuse the initial tool result when it was delivered during initialization.
     // Avoid a duplicate snapshot call and unnecessary host state churn.
-    if (snapshot) render();
+    const initial = snapshot as Snapshot | null;
+    if (initial?.allowedDirectories) render();
     else await refresh();
   } catch (error) {
     window.clearTimeout(handshakeWarning);

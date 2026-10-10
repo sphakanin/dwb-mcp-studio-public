@@ -2,7 +2,7 @@ import { Client as ModernClient } from '@modelcontextprotocol/client';
 import { StdioClientTransport as ModernStdio } from '@modelcontextprotocol/client/stdio';
 import { Client as LegacyClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport as LegacyStdio } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { mkdtempSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { writeTestBaseConfig } from './test-policy.js';
 
@@ -11,6 +11,10 @@ const entry = resolve(projectRoot, 'dist', 'index.js');
 mkdirSync(resolve(projectRoot, 'logs'), { recursive: true });
 const testDir = mkdtempSync(join(projectRoot, 'logs', 'protocol-'));
 const baseConfig = await writeTestBaseConfig(testDir);
+// The manager test requires a nonempty policy, unlike the isolated worker smoke fixtures.
+const testPolicy = JSON.parse(readFileSync(baseConfig, 'utf8'));
+testPolicy.allowedDirectories = [testDir];
+writeFileSync(baseConfig, JSON.stringify(testPolicy));
 const pipe =
   process.platform === 'win32'
     ? `\\\\.\\pipe\\dwb-protocol-${process.pid}-${Date.now()}`
@@ -78,6 +82,21 @@ async function modern() {
   try {
     const status: any = await client.callTool({ name: 'dwb_broker_status', arguments: {} });
     brokerPid = Number(status.structuredContent?.brokerPid ?? 0) || null;
+    // Test privileged base-policy review/apply only on the isolated fixture before workers start.
+    const newRoot = resolve(testDir, 'extra-allowed');
+    mkdirSync(newRoot);
+    const policyReview: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'review_root', operation: 'root_add', path: newRoot },
+    });
+    const policyToken = policyReview.structuredContent?.review?.token;
+    assert.ok(policyToken, 'Root changes require a review token');
+    const appliedPolicy: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'apply_review', review_token: policyToken },
+    });
+    assert.match(appliedPolicy.structuredContent?.message ?? '', /Restart DWB MCP/);
+    assert.equal(JSON.parse(readFileSync(baseConfig, 'utf8')).allowedDirectories.length, 2);
     const tools = await client.listTools();
     const resources = await client.listResources();
     const preview = await client.readResource({ uri: 'ui://desktop-commander/file-preview' });
@@ -91,6 +110,53 @@ async function modern() {
       'text' in companion.contents[0] && companion.contents[0].text.includes('DWB Companion'),
     );
     assert.equal(companion.contents?.[0]?.mimeType, 'text/html;profile=mcp-app');
+    // Round-trip app-only registry actions against an isolated local broker and SQLite DB.
+    const sampleDir = resolve(testDir, 'manager-sample');
+    mkdirSync(sampleDir);
+    const registered: any = await client.callTool({
+      name: 'workspace',
+      arguments: { action: 'register', path: sampleDir },
+    });
+    const workspaceId = registered.structuredContent?.workspace?.id;
+    assert.ok(workspaceId, 'Workspace registration returned an ID');
+    const launch: any = await client.callTool({ name: 'dwb_companion', arguments: {} });
+    assert.ok(
+      !JSON.stringify(launch.structuredContent).includes(sampleDir),
+      'Model-visible launch must redact local absolute paths.',
+    );
+    const snapshot: any = await client.callTool({
+      name: 'dwb_companion_snapshot',
+      arguments: {},
+    });
+    assert.ok(
+      snapshot.structuredContent?.workspaces?.some(
+        (w: any) => w.id === workspaceId && w.path === sampleDir && w.status === 'ready',
+      ),
+      'App-only snapshot must include registered project location.',
+    );
+    const reviewed: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'review_workspace', operation: 'archive', workspace_id: workspaceId },
+    });
+    const token = reviewed.structuredContent?.review?.token;
+    assert.ok(token, 'Archive must require a review token');
+    const archived: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'apply_review', review_token: token },
+    });
+    assert.ok(
+      archived.structuredContent?.workspaces?.some(
+        (w: any) => w.id === workspaceId && w.status === 'archived',
+      ),
+    );
+    await assert.rejects(
+      client.callTool({
+        name: 'dwb_companion_action',
+        arguments: { action: 'apply_review', review_token: token },
+      }),
+      /Review expired or does not match/,
+      'Review token cannot be replayed',
+    );
     if (client.getProtocolEra() !== 'modern')
       throw new Error(`Expected modern era, got ${client.getProtocolEra()}`);
     if (client.getNegotiatedProtocolVersion() !== '2026-07-28')

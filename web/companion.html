@@ -346,6 +346,176 @@
         color: var(--dwb-muted);
         font-size: 12px;
       }
+      .current-name {
+        font-size: 18px;
+        margin: 0 0 5px;
+        overflow-wrap: anywhere;
+      }
+      .path-display {
+        font-size: 12px;
+        color: var(--dwb-muted);
+        overflow-wrap: anywhere;
+        user-select: text;
+      }
+      .picker {
+        margin-top: 15px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .picker input,
+      .manager-section input,
+      .manager-section select,
+      .registry-controls select {
+        min-width: 0;
+        width: 100%;
+        padding: 9px;
+        font: inherit;
+        color: var(--dwb-input-text);
+        background: var(--dwb-input-bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .project-results {
+        display: grid;
+        gap: 5px;
+        max-height: 252px;
+        overflow-y: auto;
+      }
+      .workspace-choice {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-align: left;
+        gap: 10px;
+        width: 100%;
+        padding: 9px 11px;
+        background: var(--dwb-action);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--dwb-text);
+      }
+      .workspace-choice.chosen {
+        border-color: var(--accent);
+        outline: 1px solid var(--accent);
+      }
+      .workspace-choice:hover:not(:disabled) {
+        border-color: var(--accent);
+      }
+      .choice-name {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--dwb-text);
+      }
+      .choice-path {
+        display: block;
+        font-size: 11px;
+        color: var(--dwb-muted);
+        overflow-wrap: anywhere;
+      }
+      .choice-arrow {
+        color: var(--dwb-accent-text);
+        flex: none;
+      }
+      #switch-submit {
+        justify-self: end;
+        min-width: 136px;
+      }
+      .manager-section {
+        margin: 12px 0;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        padding: 12px;
+        background: var(--dwb-surface);
+      }
+      .manager-section > summary {
+        padding: 3px;
+        font-size: 13px;
+      }
+      .manager-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .manager-toolbar select {
+        max-width: 180px;
+      }
+      .registry-list,
+      .allowed-list {
+        display: grid;
+        gap: 9px;
+        margin-top: 10px;
+        max-height: 420px;
+        overflow-y: auto;
+      }
+      .registry-row,
+      .root-row {
+        background: var(--dwb-action);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 10px;
+      }
+      .registry-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .registry-controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .registry-controls input {
+        grid-column: 1 / -1;
+      }
+      .root-row {
+        display: grid;
+        gap: 8px;
+      }
+      .root-row .subtle {
+        justify-self: start;
+      }
+      .status-tag {
+        font-size: 11px;
+        color: var(--dwb-accent-text);
+        text-align: right;
+      }
+      .review-panel {
+        border-color: var(--accent);
+      }
+      .secondary-cta {
+        display: block;
+        width: 100%;
+        min-height: 43px;
+        font-weight: 700;
+        color: var(--dwb-text);
+        margin-top: 8px;
+      }
+      .status-tag[data-status='missing'] {
+        color: var(--dwb-error-text);
+      }
+      .status-tag[data-status='archived'] {
+        color: var(--dwb-soft);
+      }
+      .review-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 10px;
+      }
+      .review-actions > button {
+        width: auto;
+        min-width: 118px;
+      }
+      .error-text {
+        color: var(--dwb-error-text);
+        font-size: 12px;
+      }
       @media (max-width: 400px) {
         main {
           padding: 12px;
@@ -378,8 +548,8 @@
             height="56"
           />
           <div>
-            <h1>Project Launcher</h1>
-            <p class="meta">DWB Companion · <span id="version">connecting</span></p>
+            <h1>DWB Companion</h1>
+            <p class="meta">Workspace Manager · <span id="version">connecting</span></p>
           </div>
         </div>
         <button id="refresh" class="subtle" type="button" disabled>↻ Refresh</button>
@@ -390,16 +560,26 @@
 
       <section class="panel">
         <div class="panel-title">
-          <span class="kicker">Active workspace</span
-          ><span class="pill" id="active-status">Not selected</span>
+          <span class="kicker">Current workspace · this chat</span>
+          <span class="pill" id="current-status">Not selected</span>
         </div>
-        <div class="field">
-          <label for="active-picker">Switch project without typing a path in chat</label>
-          <select id="active-picker" disabled>
-            <option>Connecting…</option>
-          </select>
+        <h2 id="current-name" class="current-name">Connecting…</h2>
+        <p class="path-display" id="current-path">Loading local location…</p>
+        <p id="context-status">The active project is used for the next ChatGPT request.</p>
+        <div class="picker">
+          <label for="project-search" class="kicker">Switch to another project</label>
+          <input
+            id="project-search"
+            type="search"
+            placeholder="Search by project name or folder…"
+            autocomplete="off"
+          />
+          <div id="project-results" class="project-results" aria-label="Available workspaces"></div>
+          <p class="path-display" id="selected-location">
+            Choose a project above before switching.
+          </p>
+          <button id="switch-submit" class="subtle" type="button" disabled>Switch Workspace</button>
         </div>
-        <div id="context-status">The active project is used for the next ChatGPT request.</div>
       </section>
 
       <div class="actions">
@@ -457,6 +637,50 @@
         <button class="primary" type="submit">Register & Switch</button>
       </form>
 
+      <details id="registry-section" class="manager-section">
+        <summary>
+          Manage registered projects <span class="meta">· Archive / Restore / Relink</span>
+        </summary>
+        <p class="note">
+          These actions change the local DWB registry only. They never delete project folders.
+        </p>
+        <div class="manager-toolbar">
+          <label for="registry-filter">Show</label>
+          <select id="registry-filter">
+            <option value="attention">Needs attention</option>
+            <option value="ready">Ready</option>
+            <option value="archived">Archived</option>
+            <option value="all">All projects</option>
+          </select>
+          <span id="registry-count" class="meta"></span>
+        </div>
+        <div id="registry-list" class="registry-list"></div>
+      </details>
+      <details id="access-section" class="manager-section">
+        <summary>Allowed working directories <span class="meta" id="allowed-count"></span></summary>
+        <p class="note">
+          These paths control the files DWB workers may access. Changing permissions requires review
+          and a DWB restart.
+        </p>
+        <p id="policy-error" class="error-text" role="alert"></p>
+        <p id="allowed-warning" class="note"></p>
+        <div id="allowed-list" class="allowed-list"></div>
+        <div class="field">
+          <label for="allowed-input">Allow another existing folder (absolute path)</label>
+          <input id="allowed-input" placeholder="C:\Projects\MyWorkspace" autocomplete="off" />
+        </div>
+        <button id="allowed-add" class="subtle" type="button">Review adding directory</button>
+      </details>
+      <section id="review-panel" class="panel review-panel hidden" aria-live="polite">
+        <h2 id="review-title">Review requested change</h2>
+        <p class="path-display" id="review-path"></p>
+        <p id="review-detail" class="note"></p>
+        <div class="review-actions">
+          <button id="review-cancel" class="subtle" type="button">Cancel</button>
+          <button id="review-confirm" class="primary" type="button">Confirm change</button>
+        </div>
+      </section>
+
       <section class="panel" id="related-section">
         <div class="panel-title">
           <h2>Related Workspaces</h2>
@@ -475,7 +699,9 @@
         </p>
       </section>
 
-      <button class="primary" id="ask" type="button" disabled>✦ Continue with ChatGPT</button>
+      <button class="subtle secondary-cta" id="ask" type="button" disabled>
+        ✦ Continue with ChatGPT
+      </button>
       <div id="notice" role="status" aria-live="polite"></div>
       <textarea id="manual" readonly aria-label="Prompt to copy manually"></textarea>
 

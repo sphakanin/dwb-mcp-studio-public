@@ -114,7 +114,9 @@
     "scripts/upgrade.mjs",
     "src/broker-client.ts",
     "src/companion-panel.ts",
+    "src/companion-access.ts",
     "src/companion-projects.ts",
+    "src/companion-manager-test.ts",
     "src/companion-projects-test.ts",
     "src/companion-panel-test.ts",
     "src/broker-protocol.ts",
@@ -166,6 +168,7 @@
     "tsconfig.companion.json",
     "web/companion.html",
     "web/companion-logo.png",
+    "web/companion-manager.ts",
     "web/companion.ts"
   ],
   "launchers": ["DWB MCP Studio.exe", "Install DWB MCP Studio.command", "install.sh"],

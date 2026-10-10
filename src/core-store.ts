@@ -28,6 +28,11 @@ export class CoreStore {
       CREATE TABLE IF NOT EXISTS companion_related_workspaces (
         session_id TEXT NOT NULL, workspace_id TEXT NOT NULL, added_at TEXT NOT NULL,
         PRIMARY KEY(session_id,workspace_id));
+      CREATE TABLE IF NOT EXISTS workspace_archives (
+        workspace_id TEXT PRIMARY KEY, archived_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS companion_policy_events (
+        id INTEGER PRIMARY KEY, ts TEXT NOT NULL, session_id TEXT NOT NULL,
+        action TEXT NOT NULL, old_revision TEXT NOT NULL, new_revision TEXT NOT NULL);
     `);
     // Earlier Mac previews inherited Windows' case-insensitive root index.
     // Preserve every row while allowing distinct roots on case-sensitive volumes.

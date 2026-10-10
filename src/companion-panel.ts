@@ -28,13 +28,27 @@ export const companionTools = [
       properties: {
         action: {
           type: 'string',
-          enum: ['create', 'switch', 'add_existing', 'related_add', 'related_remove'],
+          enum: [
+            'create',
+            'switch',
+            'add_existing',
+            'related_add',
+            'related_remove',
+            'review_workspace',
+            'review_root',
+            'apply_review',
+          ],
         },
         workspace_id: { type: 'string' },
         home_id: { type: 'string' },
         project_name: { type: 'string' },
         project_kind: { type: 'string', enum: ['blank', 'web', 'docs'] },
         path: { type: 'string' },
+        operation: {
+          type: 'string',
+          enum: ['archive', 'restore', 'unregister', 'relink', 'root_add', 'root_remove'],
+        },
+        review_token: { type: 'string' },
       },
       required: ['action'],
       additionalProperties: false,

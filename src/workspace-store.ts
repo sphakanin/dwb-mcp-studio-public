@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { CoreStore } from './core-store.js';
 import { physicalPath } from './file-observer.js';
@@ -11,6 +11,7 @@ export type WorkspaceView = {
   aliases: string[];
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
 };
 
 function text(value: unknown): string {
@@ -27,6 +28,13 @@ function strings(value: unknown): string[] {
 
 function key(value: string): string {
   return value.trim().toLocaleLowerCase();
+}
+function samePhysicalDirectory(a: string, b: string): boolean {
+  try {
+    return physicalPath(a) === physicalPath(b);
+  } catch {
+    return false; // Stale/broken registrations must not block other valid projects.
+  }
 }
 export function pathWithin(root: string, target: string): boolean {
   const rel = relative(physicalPath(root), physicalPath(target));
@@ -63,6 +71,11 @@ export class WorkspaceStore {
       aliases: this.aliases(String(row.id)),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
+      archivedAt:
+        this.db.one<{ archived_at: string }>(
+          'SELECT archived_at FROM workspace_archives WHERE workspace_id=?',
+          [String(row.id)],
+        )?.archived_at ?? null,
     };
   }
 
@@ -96,12 +109,14 @@ export class WorkspaceStore {
       .filter((item) => item.workspace_id !== activeId)
       .map((item) => this.row(item.workspace_id))
       .filter((item) => Boolean(item))
-      .map((item) => this.view(item));
+      .map((item) => this.view(item))
+      .filter((workspace) => workspace.archivedAt === null);
   }
 
   addRelated(sessionId: string, workspaceId: string): WorkspaceView[] {
     return this.db.transaction(() => {
       const target = this.resolveRef(workspaceId);
+      if (target.archivedAt) throw new Error('Archived workspaces cannot be references.');
       if (this.current(sessionId)?.id === target.id)
         throw new Error('The active workspace is already available to the conversation.');
       const exists = this.db.one(
@@ -131,6 +146,101 @@ export class WorkspaceStore {
       );
       return this.related(sessionId);
     });
+  }
+
+  usage(workspaceId: string): { bindings: number; references: number } {
+    return {
+      bindings:
+        this.db.one<{ n: number }>(
+          'SELECT COUNT(*) AS n FROM session_workspace_bindings WHERE workspace_id=?',
+          [workspaceId],
+        )?.n ?? 0,
+      references:
+        this.db.one<{ n: number }>(
+          'SELECT COUNT(*) AS n FROM companion_related_workspaces WHERE workspace_id=?',
+          [workspaceId],
+        )?.n ?? 0,
+    };
+  }
+
+  private requireUnused(workspaceId: string): void {
+    const usage = this.usage(workspaceId);
+    if (usage.bindings || usage.references)
+      throw new Error(
+        'Workspace is still bound or used as a reference. Unbind/remove references before managing it.',
+      );
+  }
+
+  archive(workspaceId: string, sessionId: string): WorkspaceView {
+    return this.db.transaction(() => {
+      const workspace = this.exact(workspaceId);
+      if (workspace.archivedAt) throw new Error('Workspace is already archived.');
+      this.requireUnused(workspace.id);
+      this.db.run('INSERT INTO workspace_archives(workspace_id,archived_at) VALUES(?,?)', [
+        workspace.id,
+        new Date().toISOString(),
+      ]);
+      this.event(workspace.id, 'archived', sessionId);
+      return this.exact(workspace.id);
+    });
+  }
+
+  restore(workspaceId: string, sessionId: string): WorkspaceView {
+    return this.db.transaction(() => {
+      const workspace = this.exact(workspaceId);
+      if (!workspace.archivedAt) throw new Error('Workspace is not archived.');
+      this.db.run('DELETE FROM workspace_archives WHERE workspace_id=?', [workspace.id]);
+      this.event(workspace.id, 'restored', sessionId);
+      return this.exact(workspace.id);
+    });
+  }
+
+  unregister(workspaceId: string, sessionId: string): { unregistered: string } {
+    return this.db.transaction(() => {
+      const workspace = this.exact(workspaceId);
+      if (!workspace.archivedAt)
+        throw new Error('Archive this workspace before removing its registry entry.');
+      this.requireUnused(workspace.id);
+      this.event(workspace.id, 'unregistered', sessionId, {
+        name: workspace.name,
+        root: workspace.root,
+      });
+      this.db.run('DELETE FROM workspace_aliases WHERE workspace_id=?', [workspace.id]);
+      this.db.run('DELETE FROM workspace_archives WHERE workspace_id=?', [workspace.id]);
+      this.db.run('DELETE FROM workspaces WHERE id=?', [workspace.id]);
+      return { unregistered: workspace.id };
+    });
+  }
+
+  async relink(workspaceId: string, newPath: string, sessionId: string): Promise<WorkspaceView> {
+    if (!isAbsolute(newPath)) throw new Error('Relink needs an absolute existing directory.');
+    const canonical = await realpath(newPath);
+    if (!(await stat(canonical)).isDirectory())
+      throw new Error('Relink target must be a directory.');
+    return this.db.transaction(() => {
+      const workspace = this.exact(workspaceId);
+      this.requireUnused(workspace.id);
+      const other = this.db
+        .query<{ id: string; root_path: string }>(
+          'SELECT id,root_path FROM workspaces WHERE id<>?',
+          [workspace.id],
+        )
+        .find((item) => samePhysicalDirectory(item.root_path, canonical));
+      if (other) throw new Error('The target directory is already registered.');
+      this.db.run('UPDATE workspaces SET root_path=?,updated_at=? WHERE id=?', [
+        canonical,
+        new Date().toISOString(),
+        workspace.id,
+      ]);
+      this.event(workspace.id, 'relinked', sessionId, { from: workspace.root, to: canonical });
+      return this.exact(workspace.id);
+    });
+  }
+
+  exact(workspaceId: string): WorkspaceView {
+    const row = this.row(workspaceId);
+    if (!row) throw new Error('Unknown workspace ID.');
+    return this.view(row);
   }
 
   workspaceForPath(path: string): WorkspaceView | null {
@@ -224,12 +334,9 @@ export class WorkspaceStore {
       throw new Error(`Workspace path is not an existing directory: ${root}`);
     return this.db.transaction(() => {
       const now = new Date().toISOString();
-      const existing = this.db.one<any>(
-        process.platform === 'win32'
-          ? 'SELECT * FROM workspaces WHERE lower(root_path)=lower(?)'
-          : 'SELECT * FROM workspaces WHERE root_path=? COLLATE BINARY',
-        [root],
-      );
+      const existing = this.db
+        .query<any>('SELECT * FROM workspaces')
+        .find((row) => samePhysicalDirectory(String(row.root_path), root));
       const name = text(args.name) || (existing ? String(existing.name) : basename(root));
       let id = existing ? String(existing.id) : `ws_${randomUUID().slice(0, 8)}`;
       if (!existing) {
@@ -287,6 +394,7 @@ export class WorkspaceStore {
       );
     } else {
       workspace = this.resolveRef(ref);
+      if (workspace.archivedAt) throw new Error('Restore the archived workspace before binding.');
       if (!(await stat(workspace.root).catch(() => null))?.isDirectory())
         throw new Error(`Workspace path is not an existing directory: ${workspace.root}`);
     }
