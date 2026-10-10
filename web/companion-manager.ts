@@ -65,7 +65,7 @@ export function createWorkspaceManager(
         : 'Choose one workspace to begin this chat.');
     byId('current-status').textContent = locked ? '🔒 Locked for this chat' : 'Select once';
     byId('workspace-lock-hint').textContent = locked
-      ? 'This chat is permanently linked to its first workspace. To work on another project, start a new ChatGPT chat.'
+      ? 'Locked to this workspace. Open a new ChatGPT chat to work on another project.'
       : 'Your first selection will be locked to this chat. You cannot change it later.';
     byId('workspace-picker').classList.toggle('hidden', locked);
     byId('project-creation-actions').classList.toggle('hidden', locked);

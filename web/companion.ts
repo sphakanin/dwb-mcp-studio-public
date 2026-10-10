@@ -57,11 +57,15 @@ const notice = (text: string, error = false) => {
   setText('notice', text);
   get('notice').classList.toggle('error', error);
 };
-const manual = get('manual') as HTMLTextAreaElement;
 let snapshot: Snapshot | null = null;
 let app: App | null = null;
 let connected = false;
 let busy = false;
+let lastSyncedContext: string | null = null;
+const bootMessage = (message: string, show = true) => {
+  setText('boot-status', message);
+  get('boot-status').classList.toggle('hidden', !show);
+};
 const manager = createWorkspaceManager(
   (payload) => runAction(payload),
   () => busy,
@@ -149,6 +153,8 @@ function render() {
   setText('queue', String(s.broker.queueDepth));
   setText('skills-count', String(s.skills.length) + ' installed');
   setText('session-count', String(s.sessions.length));
+  setText('related-count', s.relatedWorkspaces.length + ' / 5');
+  get('related-section').classList.toggle('hidden', !s.currentWorkspace);
   if (s.allowedDirectories) manager.render(s as unknown as ManagerData);
 
   const home = select('home-picker');
@@ -167,12 +173,6 @@ function render() {
 
   const related = get('related-list');
   related.replaceChildren();
-  if (!s.relatedWorkspaces.length) {
-    const none = document.createElement('p');
-    none.textContent = 'No references selected';
-    none.className = 'meta';
-    related.append(none);
-  }
   for (const w of s.relatedWorkspaces) {
     const row = document.createElement('div');
     row.className = 'reference';
@@ -203,8 +203,8 @@ function render() {
     )
     .map((w) => ({ value: w.id, title: w.name }));
   fillSelect(reference, choices, 'No other accessible workspace');
-  button('related-add').disabled = !connected || busy || !choices.length;
-  button('ask').disabled = !connected || busy || !s.currentWorkspace;
+  button('related-add').disabled =
+    !connected || busy || !choices.length || s.relatedWorkspaces.length >= 5;
   button('refresh').disabled = !connected || busy;
   smallRows(
     'skills-list',
@@ -245,9 +245,21 @@ function contextText(s: Snapshot): string {
 
 async function syncModelContext() {
   if (!app || !snapshot) return;
-  const capability = app.getHostCapabilities();
-  if (!capability?.updateModelContext?.text) {
-    setText('context-status', 'Host does not advertise context sync. Use Continue with ChatGPT.');
+  if (!snapshot.currentWorkspace) {
+    lastSyncedContext = null;
+    setText('context-status', 'Select a workspace to begin this chat.');
+    return;
+  }
+  const text = contextText(snapshot);
+  if (text === lastSyncedContext) {
+    setText('context-status', '✓ Synced with ChatGPT · continue in the chat.');
+    return;
+  }
+  if (!app.getHostCapabilities()?.updateModelContext?.text) {
+    setText(
+      'context-status',
+      'Workspace selected locally · context sync not supported by this host.',
+    );
     return;
   }
   try {
@@ -255,14 +267,18 @@ async function syncModelContext() {
       content: [
         {
           type: 'text',
-          text: contextText(snapshot),
+          text,
           _meta: { 'openai/title': 'DWB project context' },
         },
       ],
     });
-    setText('context-status', '✓ Project context synced — use the chat normally.');
+    lastSyncedContext = text;
+    setText('context-status', '✓ Synced with ChatGPT · continue in the chat.');
   } catch {
-    setText('context-status', 'Context sync unavailable; Continue with ChatGPT still works.');
+    setText(
+      'context-status',
+      'Workspace selected locally · context sync unavailable. Ask ChatGPT to use this workspace.',
+    );
   }
 }
 
@@ -275,10 +291,11 @@ async function refresh() {
     const next = parseResult(result);
     if (!next) throw new Error('Unexpected snapshot format.');
     snapshot = next;
-    setText('boot-status', 'ChatGPT connected · workspace data loaded.');
+    await syncModelContext();
+    bootMessage('', false);
     notice('');
   } catch (err) {
-    setText('boot-status', 'Connected, but workspace refresh failed.');
+    bootMessage('Connected, but workspace refresh failed.');
     notice('Could not refresh: ' + String(err), true);
   } finally {
     busy = false;
@@ -305,52 +322,20 @@ async function runAction(payload: Action | ManagerAction) {
     const next = parseResult(result);
     if (!next) throw new Error('Unexpected DWB action response.');
     snapshot = next;
+    bootMessage('', false);
     notice(next.message || 'Updated');
     if (payload.action === 'create') get('create-form').classList.add('hidden');
     if (payload.action === 'add_existing') get('add-form').classList.add('hidden');
-    if (next.review) get('review-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (next.review) {
+      (get('admin-section') as HTMLDetailsElement).open = true;
+      get('review-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
     if (
       ['switch', 'create', 'add_existing', 'related_add', 'related_remove'].includes(payload.action)
     )
       await syncModelContext();
   } catch (err) {
     notice('Unable to update project: ' + String(err), true);
-  } finally {
-    busy = false;
-    render();
-  }
-}
-
-async function continueWithChat() {
-  if (!app || !snapshot?.currentWorkspace || busy) return;
-  const current = snapshot.currentWorkspace;
-  const related = snapshot.relatedWorkspaces.map((w) => w.name).join(', ');
-  const prompt = [
-    'ต่อจาก Workspace ที่เลือกใน DWB Companion:',
-    'Active workspace: ' + current.name + ' (' + current.id + ')',
-    'Reference workspaces (read-only): ' + (related || 'none'),
-    '',
-    'ช่วยอ่านโครงสร้างและไฟล์สำคัญของ Active Workspace แล้วเสนอ Next Step พร้อมตัวเลือกที่กดเลือกได้ใน ChatGPT Intelligent UI ถ้ารองรับ',
-    'หากเป็นโปรเจกต์เว็บไซต์ให้เริ่มด้วยแผน Landing Page และใช้ข้อมูลอ้างอิงจาก Related Workspaces เท่าที่สิทธิ์อนุญาต',
-    'ก่อนแก้ไฟล์หรือรันคำสั่งที่เปลี่ยนระบบให้ยืนยันขอบเขตงานก่อน',
-  ].join('\n');
-  busy = true;
-  render();
-  notice('Sending your selected project to ChatGPT…');
-  try {
-    const response = await app.sendMessage({
-      role: 'user',
-      content: [{ type: 'text', text: prompt }],
-    });
-    if (response?.isError) throw new Error('ChatGPT did not accept the message.');
-    manual.style.display = 'none';
-    notice('Sent — continue in the conversation.');
-  } catch {
-    manual.value = prompt;
-    manual.style.display = 'block';
-    manual.focus();
-    manual.select();
-    notice('Your host cannot send from this panel. Copy the prompt into chat.', true);
   } finally {
     busy = false;
     render();
@@ -386,7 +371,6 @@ button('related-add').addEventListener('click', () => {
   const id = select('related-picker').value;
   if (id) void runAction({ action: 'related_add', workspace_id: id });
 });
-button('ask').addEventListener('click', () => void continueWithChat());
 
 const client = new App({ name: 'DWB Companion', version: '0.2.0' });
 app = client;
@@ -395,7 +379,7 @@ client.ontoolresult = (result) => {
     const next = parseResult(result);
     if (next) {
       snapshot = next;
-      setText('boot-status', 'Workspace data received from ChatGPT.');
+      bootMessage('Workspace data received · loading project details…');
       render();
     }
   } catch {
@@ -417,7 +401,7 @@ client.onteardown = async () => ({});
 // A timeout makes host-side failures distinguishable from a missing resource.
 const handshakeWarning = window.setTimeout(() => {
   if (connected) return;
-  setText('boot-status', 'UI loaded, but ChatGPT has not completed the MCP Apps handshake.');
+  bootMessage('UI loaded, but ChatGPT has not completed the MCP Apps handshake.');
   notice(
     'Host connection is still pending. Try reopening the panel on a supported ChatGPT host.',
     true,
@@ -434,15 +418,18 @@ void (async () => {
     if (initialHostContext?.styles?.css?.fonts) applyHostFonts(initialHostContext.styles.css.fonts);
     connected = true;
     window.clearTimeout(handshakeWarning);
-    setText('boot-status', 'ChatGPT connected · loading workspace data…');
+    bootMessage('ChatGPT connected · loading workspace data…');
     // Reuse the initial tool result when it was delivered during initialization.
     // Avoid a duplicate snapshot call and unnecessary host state churn.
     const initial = snapshot as Snapshot | null;
-    if (initial?.allowedDirectories) render();
-    else await refresh();
+    if (initial?.allowedDirectories) {
+      await syncModelContext();
+      bootMessage('', false);
+      render();
+    } else await refresh();
   } catch (error) {
     window.clearTimeout(handshakeWarning);
-    setText('boot-status', 'ChatGPT MCP Apps handshake failed.');
+    bootMessage('ChatGPT MCP Apps handshake failed.');
     notice('ChatGPT MCP Apps host unavailable: ' + String(error), true);
   }
 })();

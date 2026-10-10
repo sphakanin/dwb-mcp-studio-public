@@ -20,6 +20,18 @@ const generatedHtml = readFileSync(
 assert.equal((generatedHtml.match(/<!doctype html>/gi) ?? []).length, 1);
 assert.ok(!generatedHtml.includes('DWB_COMPANION_SCRIPT'));
 assert.equal((generatedHtml.match(/id="boot-status"/g) ?? []).length, 1);
+// Regression: Companion is project context, NOT a prompt-sending chat bot.
+assert.ok(!generatedHtml.includes('Continue with ChatGPT'));
+assert.ok(!generatedHtml.includes('id="ask"'));
+assert.ok(!generatedHtml.includes('id="manual"'));
+assert.ok(generatedHtml.includes('id="related-count"'));
+assert.ok(generatedHtml.includes('id="admin-section"'));
+assert.ok(
+  generatedHtml.indexOf('id="related-section"') < generatedHtml.indexOf('id="admin-section"'),
+  'Supporting workspaces should be visible before advanced administration.',
+);
+const clientSource = readFileSync(new URL('../web/companion.ts', import.meta.url), 'utf8');
+assert.ok(!clientSource.includes('app.sendMessage('), 'Panel must not send prompt messages');
 assert.ok(!generatedHtml.includes('__DWB_COMPANION_LOGO__'));
 const embeddedLogo = generatedHtml.match(
   /<img[^>]*class="logo"[^>]*src="data:image\/png;base64,([^"]+)"/,

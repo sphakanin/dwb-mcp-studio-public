@@ -7,13 +7,13 @@ MCP App ใน ChatGPT conversation panel (thread entrypoint) สำหรับ
 - **One Chat, One Workspace**: แชทที่ยังไม่เลือกโปรเจกต์จะมีตัวค้นหาและปุ่ม Select & Lock ให้เลือกได้เพียงครั้งเดียว หลังจากนั้นแสดงเฉพาะ Current Workspace และ Full Path; ต้องเปิดแชทใหม่จึงจะเลือกโปรเจกต์อื่นได้
 - **New Project**: ใช้ได้ก่อนเลือก Workspace เท่านั้น; เลือก parent จาก DWB allowedDirectories, ตั้งชื่อ, เลือก Blank / Website / Documentation แล้วสร้างโฟลเดอร์พร้อม Lock ให้แชทโดยไม่เขียนทับ
 - **Add Existing**: ใช้ได้ก่อนเลือก Workspace เท่านั้น; กรอก path ที่มีอยู่ใน Panel ครั้งเดียวเพื่อ register และ lock
-- **Related Workspaces**: เลือกโปรเจกต์อื่นเป็น reference แบบ read-only สูงสุด 5 รายการต่อ session
+- **Reference Workspaces**: แสดงทันทีใต้ Workspace ปัจจุบัน เลือกโปรเจกต์อื่นเป็นแหล่งอ้างอิงสูงสุด 5 รายการต่อ session; การเพิ่ม/ลบ Reference ไม่เปลี่ยน Active Workspace
 - **Searchable Project Picker**: แสดงก่อนการเลือกครั้งแรก ค้นหาชื่อ/พาธแล้วกดยืนยัน Select & Lock; หลังเลือกแล้วจะซ่อน Picker ป้องกันการ Switch
-- **Manage Registry**: แยก Ready / Outside allowed roots / Missing / Archived; Archive, Restore, Unregister และ Relink แบบ Review → Confirm โดยไม่ลบไฟล์จริง
+- **Workspace administration**: รวม Manage Registry และ Allowed Directories ไว้ในส่วน Advanced ที่ย่อไว้เป็นค่าเริ่มต้น; Registry แยก Ready / Outside allowed roots / Missing / Archived และรองรับ Archive, Restore, Unregister และ Relink แบบ Review → Confirm โดยไม่ลบไฟล์จริง
 - **Allowed Directory Manager**: แสดง Base Policy ปัจจุบัน เพิ่ม/ลบ Root ได้เมื่อยืนยัน Review ที่ยังไม่หมดอายุ และไม่มี active worker; บันทึกไฟล์สำรองก่อนเปลี่ยน Policy
 - **Context Sync**: ใช้ app.updateModelContext ส่งรหัส Workspace ที่เลือกและ references ให้ ChatGPT ในรอบต่อไปแบบไม่ส่งข้อความใหม่ หาก Host รองรับ
-- **Continue with ChatGPT**: ปุ่มส่งข้อความผ่าน app.sendMessage โดยผู้ใช้สั่งเอง; Host ที่ไม่รองรับแสดง prompt สำหรับ copy
-- **System status**: ย้าย Worker / Session / Skills ไปไว้ใต้รายละเอียดที่ย่อได้
+- **Chat-first UX**: ไม่มีปุ่ม Continue with ChatGPT และไม่มี app.sendMessage ที่ส่ง Prompt สำเร็จรูป; ผู้ใช้พิมพ์สั่งงานในแชทเองหลังเลือก Workspace. ใช้ app.updateModelContext เฉพาะเมื่อ Host รองรับ พร้อมหลีกเลี่ยงการ Sync ซ้ำโดยไม่จำเป็น และแจ้งสถานะเมื่อไม่รองรับ
+- **System status**: เก็บ Worker / Session / Skills ไว้ใต้รายละเอียดที่ย่อได้; ข้อความ Boot Diagnostics ซ่อนหลังโหลดสำเร็จ แต่แสดงเมื่อเกิดข้อผิดพลาด
 
 ## Security และ Project Home
 
@@ -51,10 +51,11 @@ Review token อายุ 5 นาที ผูกกับ Session และใ
 7. ทดสอบสร้าง Website project ใน Project Home ที่อนุญาตและอยู่นอก Source Repo
 8. ทดสอบแชทใหม่เริ่มจาก Select Workspace, ยืนยันแล้ว Picker หาย และแสดง Locked + Full Path
 9. ทดสอบว่า Switch, Unbind, Resume ไปอีก Workspace และ New Project หลัง Lock ถูกบล็อกจาก Backend โดยไม่ตัด Worker เดิม
-10. ทดสอบเปิดแชทใหม่เลือก Workspace อื่นได้, กลับแชทเดิมยังคงล็อกเดิม และ Add/Remove Related ไม่เปลี่ยน Active Workspace
-11. ทดสอบ Registry Archive/Restore/Unregister/Relink ด้วยฐานข้อมูลทดสอบเท่านั้น รวมถึงไม่ลบไฟล์จริง
-12. ทดสอบ Policy add/remove กับไฟล์ Base Policy ชั่วคราวเท่านั้น และตรวจ revision conflict, last-root guard, token replay
-13. ยืนยันว่า Path ปรากฏเฉพาะ app-only Snapshot และไม่ปรากฏในผล Tool เปิด Panel ที่ model มองเห็น
+10. ทดสอบเปิดแชทใหม่เลือก Workspace อื่นได้, กลับแชทเดิมยังคงล็อกเดิม และ Add/Remove Reference ไม่เปลี่ยน Active Workspace
+11. ทดสอบหลัง Lock ไม่มีปุ่มส่ง Prompt สำเร็จรูป, ข้อความ Connected ซ้ำซ้อนหายไป, Reference Workspaces อยู่ก่อน Workspace administration และไม่เกิด Chat Message โดยอัตโนมัติ
+12. ทดสอบ Registry Archive/Restore/Unregister/Relink ด้วยฐานข้อมูลทดสอบเท่านั้น รวมถึงไม่ลบไฟล์จริง
+13. ทดสอบ Policy add/remove กับไฟล์ Base Policy ชั่วคราวเท่านั้น และตรวจ revision conflict, last-root guard, token replay
+14. ยืนยันว่า Path ปรากฏเฉพาะ app-only Snapshot และไม่ปรากฏในผล Tool เปิด Panel ที่ model มองเห็น
 
 โค้ดนี้ยังเป็น PoC ใน feature branch ไม่ใช่ Public Release. Unit / MCP integration tests ไม่ยืนยันว่า UI ทำงานบน ChatGPT Host จริงแล้ว. ยังต้องทบทวน npm audit High/Critical และ bundled license notices ก่อนออก release
 

@@ -270,7 +270,6 @@
         padding: 9px;
       }
       #notice {
-        min-height: 19px;
         color: var(--dwb-muted);
         font-size: 12px;
         margin: 7px 0 0;
@@ -281,20 +280,8 @@
       }
       #context-status {
         font-size: 12px;
-        color: var(--dwb-muted);
-        margin: 5px 0 0;
-      }
-      #manual {
-        display: none;
-        width: 100%;
-        min-height: 66px;
-        margin: 8px 0;
-        resize: vertical;
-        border: 1px solid var(--line);
-        background: var(--dwb-input-bg);
-        color: var(--dwb-input-text);
-        padding: 8px;
-        border-radius: 8px;
+        color: var(--dwb-accent-text);
+        margin: 7px 0 0;
       }
       details {
         margin-top: 14px;
@@ -347,12 +334,8 @@
         font-size: 12px;
       }
       .workspace-lock-hint {
-        color: var(--dwb-accent-text);
-        background: var(--dwb-pill-bg);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 9px 11px;
-        margin: 12px 0 6px;
+        color: var(--dwb-muted);
+        margin: 10px 0 5px;
         font-size: 12px;
         line-height: 1.45;
       }
@@ -498,13 +481,22 @@
       .review-panel {
         border-color: var(--accent);
       }
-      .secondary-cta {
-        display: block;
-        width: 100%;
-        min-height: 43px;
-        font-weight: 700;
-        color: var(--dwb-text);
-        margin-top: 8px;
+      .admin-section {
+        background: transparent;
+        padding: 11px 12px;
+      }
+      .admin-section > .note {
+        margin: 7px 0 0;
+      }
+      .admin-section > .manager-section {
+        margin-top: 10px;
+        margin-bottom: 0;
+      }
+      .related-intro {
+        margin: 0 0 10px;
+      }
+      #notice:empty {
+        display: none;
       }
       .status-tag[data-status='missing'] {
         color: var(--dwb-error-text);
@@ -578,7 +570,9 @@
         <p id="workspace-lock-hint" class="workspace-lock-hint">
           Your first selection stays fixed for this chat.
         </p>
-        <p id="context-status">The active project is used for the next ChatGPT request.</p>
+        <p id="context-status" role="status" aria-live="polite">
+          Choose a workspace to start chatting.
+        </p>
         <div class="picker" id="workspace-picker">
           <label for="project-search" class="kicker">Select a workspace to start this chat</label>
           <input
@@ -652,73 +646,77 @@
         <button class="primary" type="submit">Register & lock to this chat</button>
       </form>
 
-      <details id="registry-section" class="manager-section">
-        <summary>
-          Manage registered projects <span class="meta">· Archive / Restore / Relink</span>
-        </summary>
-        <p class="note">
-          These actions change the local DWB registry only. They never delete project folders.
-        </p>
-        <div class="manager-toolbar">
-          <label for="registry-filter">Show</label>
-          <select id="registry-filter">
-            <option value="attention">Needs attention</option>
-            <option value="ready">Ready</option>
-            <option value="archived">Archived</option>
-            <option value="all">All projects</option>
-          </select>
-          <span id="registry-count" class="meta"></span>
-        </div>
-        <div id="registry-list" class="registry-list"></div>
-      </details>
-      <details id="access-section" class="manager-section">
-        <summary>Allowed working directories <span class="meta" id="allowed-count"></span></summary>
-        <p class="note">
-          These paths control the files DWB workers may access. Changing permissions requires review
-          and a DWB restart.
-        </p>
-        <p id="policy-error" class="error-text" role="alert"></p>
-        <p id="allowed-warning" class="note"></p>
-        <div id="allowed-list" class="allowed-list"></div>
-        <div class="field">
-          <label for="allowed-input">Allow another existing folder (absolute path)</label>
-          <input id="allowed-input" placeholder="C:\Projects\MyWorkspace" autocomplete="off" />
-        </div>
-        <button id="allowed-add" class="subtle" type="button">Review adding directory</button>
-      </details>
-      <section id="review-panel" class="panel review-panel hidden" aria-live="polite">
-        <h2 id="review-title">Review requested change</h2>
-        <p class="path-display" id="review-path"></p>
-        <p id="review-detail" class="note"></p>
-        <div class="review-actions">
-          <button id="review-cancel" class="subtle" type="button">Cancel</button>
-          <button id="review-confirm" class="primary" type="button">Confirm change</button>
-        </div>
-      </section>
-
       <section class="panel" id="related-section">
         <div class="panel-title">
-          <h2>Related Workspaces</h2>
-          <span class="pill">Read-only references</span>
+          <h2>Reference Workspaces</h2>
+          <span class="pill" id="related-count">0 / 5</span>
         </div>
+        <p class="note related-intro">
+          Add supporting projects for ChatGPT to reference. Your locked workspace and file
+          permissions stay unchanged.
+        </p>
         <div id="related-list"></div>
         <div class="ref-actions">
-          <select id="related-picker" aria-label="Choose a reference workspace">
-            <option>Select project…</option>
+          <select id="related-picker" aria-label="Choose a supporting workspace">
+            <option>Select supporting project…</option>
           </select>
           <button class="subtle" id="related-add" type="button" disabled>+ Add</button>
         </div>
-        <p class="note">
-          References help ChatGPT locate supporting files. They do not grant extra filesystem access
-          or write permissions.
-        </p>
       </section>
 
-      <button class="subtle secondary-cta" id="ask" type="button" disabled>
-        ✦ Continue with ChatGPT
-      </button>
+      <details id="admin-section" class="manager-section admin-section">
+        <summary>
+          Workspace administration <span class="meta">· Projects & permissions</span>
+        </summary>
+        <p class="note">Archive, relink and manage allowed folders here. Actions require review.</p>
+        <details id="registry-section" class="manager-section">
+          <summary>
+            Manage registered projects <span class="meta">· Archive / Restore / Relink</span>
+          </summary>
+          <p class="note">
+            These actions change the local DWB registry only. They never delete project folders.
+          </p>
+          <div class="manager-toolbar">
+            <label for="registry-filter">Show</label>
+            <select id="registry-filter">
+              <option value="attention">Needs attention</option>
+              <option value="ready">Ready</option>
+              <option value="archived">Archived</option>
+              <option value="all">All projects</option>
+            </select>
+            <span id="registry-count" class="meta"></span>
+          </div>
+          <div id="registry-list" class="registry-list"></div>
+        </details>
+        <details id="access-section" class="manager-section">
+          <summary>
+            Allowed working directories <span class="meta" id="allowed-count"></span>
+          </summary>
+          <p class="note">
+            These paths control the files DWB workers may access. Changing permissions requires
+            review and a DWB restart.
+          </p>
+          <p id="policy-error" class="error-text" role="alert"></p>
+          <p id="allowed-warning" class="note"></p>
+          <div id="allowed-list" class="allowed-list"></div>
+          <div class="field">
+            <label for="allowed-input">Allow another existing folder (absolute path)</label>
+            <input id="allowed-input" placeholder="C:\Projects\MyWorkspace" autocomplete="off" />
+          </div>
+          <button id="allowed-add" class="subtle" type="button">Review adding directory</button>
+        </details>
+        <section id="review-panel" class="panel review-panel hidden" aria-live="polite">
+          <h2 id="review-title">Review requested change</h2>
+          <p class="path-display" id="review-path"></p>
+          <p id="review-detail" class="note"></p>
+          <div class="review-actions">
+            <button id="review-cancel" class="subtle" type="button">Cancel</button>
+            <button id="review-confirm" class="primary" type="button">Confirm change</button>
+          </div>
+        </section>
+      </details>
+
       <div id="notice" role="status" aria-live="polite"></div>
-      <textarea id="manual" readonly aria-label="Prompt to copy manually"></textarea>
 
       <details>
         <summary>System status · Workers / Sessions / Skills</summary>
@@ -739,7 +737,7 @@
         <div id="session-list"></div>
       </details>
       <footer>
-        Project actions require your click and remain subject to DWB's local path policy.
+        DWB filesystem policy applies. Project changes require confirmation.
         <span id="updated"></span>
       </footer>
     </main>
@@ -749,12 +747,17 @@
       if (bootLabel) bootLabel.textContent = 'HTML and boot script loaded · starting MCP bridge…';
       window.addEventListener('error', (event) => {
         const label = document.getElementById('boot-status');
-        if (label)
+        if (label) {
           label.textContent = 'Panel JavaScript error: ' + String(event.message).slice(0, 170);
+          label.classList.remove('hidden');
+        }
       });
       window.addEventListener('unhandledrejection', (event) => {
         const label = document.getElementById('boot-status');
-        if (label) label.textContent = 'Panel promise error: ' + String(event.reason).slice(0, 170);
+        if (label) {
+          label.textContent = 'Panel promise error: ' + String(event.reason).slice(0, 170);
+          label.classList.remove('hidden');
+        }
       });
     </script>
     <!-- DWB_COMPANION_SCRIPT -->
