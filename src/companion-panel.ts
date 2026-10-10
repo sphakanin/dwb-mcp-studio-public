@@ -14,6 +14,8 @@ export const companionTools = [
     _meta: {
       ui: { resourceUri: COMPANION_URI, visibility: ['model', 'app'] },
       'openai/ui': { entrypoints: [{ type: 'thread' }] },
+      // Compatibility alias for ChatGPT hosts that still inspect the legacy UI key.
+      'openai/outputTemplate': COMPANION_URI,
     },
   },
   {

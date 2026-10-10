@@ -267,8 +267,10 @@ async function refresh() {
     const next = parseResult(result);
     if (!next) throw new Error('Unexpected snapshot format.');
     snapshot = next;
+    setText('boot-status', 'ChatGPT connected · workspace data loaded.');
     notice('');
   } catch (err) {
+    setText('boot-status', 'Connected, but workspace refresh failed.');
     notice('Could not refresh: ' + String(err), true);
   } finally {
     busy = false;
@@ -384,6 +386,7 @@ client.ontoolresult = (result) => {
     const next = parseResult(result);
     if (next) {
       snapshot = next;
+      setText('boot-status', 'Workspace data received from ChatGPT.');
       render();
     }
   } catch {
@@ -401,12 +404,35 @@ client.onhostcontextchanged = (ctx) => {
   }
 };
 client.onteardown = async () => ({});
+// Static HTML remains visible even if the host cannot initialize the MCP Apps bridge.
+// A timeout makes host-side failures distinguishable from a missing resource.
+const handshakeWarning = window.setTimeout(() => {
+  if (connected) return;
+  setText('boot-status', 'UI loaded, but ChatGPT has not completed the MCP Apps handshake.');
+  notice(
+    'Host connection is still pending. Try reopening the panel on a supported ChatGPT host.',
+    true,
+  );
+}, 10_000);
 void (async () => {
   try {
     await client.connect(new PostMessageTransport(window.parent, window.parent));
+    // The initial host context may arrive during connect, before the change handler runs.
+    const initialHostContext = client.getHostContext();
+    if (initialHostContext?.theme) applyDocumentTheme(initialHostContext.theme);
+    if (initialHostContext?.styles?.variables)
+      applyHostStyleVariables(initialHostContext.styles.variables);
+    if (initialHostContext?.styles?.css?.fonts) applyHostFonts(initialHostContext.styles.css.fonts);
     connected = true;
-    await refresh();
+    window.clearTimeout(handshakeWarning);
+    setText('boot-status', 'ChatGPT connected · loading workspace data…');
+    // Reuse the initial tool result when it was delivered during initialization.
+    // Avoid a duplicate snapshot call and unnecessary host state churn.
+    if (snapshot) render();
+    else await refresh();
   } catch (error) {
+    window.clearTimeout(handshakeWarning);
+    setText('boot-status', 'ChatGPT MCP Apps handshake failed.');
     notice('ChatGPT MCP Apps host unavailable: ' + String(error), true);
   }
 })();

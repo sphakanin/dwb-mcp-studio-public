@@ -437,6 +437,7 @@ async function handle(
           name: 'DWB Companion',
           description: 'Read-only ChatGPT conversation panel for DWB MCP Studio',
           mimeType: COMPANION_MIME,
+          _meta: { ui: { prefersBorder: true } },
         },
       ],
     };

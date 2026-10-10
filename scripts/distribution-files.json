@@ -165,6 +165,7 @@
     "tsconfig.json",
     "tsconfig.companion.json",
     "web/companion.html",
+    "web/companion-logo.png",
     "web/companion.ts"
   ],
   "launchers": ["DWB MCP Studio.exe", "Install DWB MCP Studio.command", "install.sh"],

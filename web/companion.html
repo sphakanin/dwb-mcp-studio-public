@@ -7,20 +7,32 @@
     <style>
       :root {
         color-scheme: light dark;
-        --accent: #fa4616;
-        --navy: #17202e;
-        --line: rgba(127, 135, 149, 0.24);
+        /* DWB logo palette: midnight navy, electric blue, cyan, violet. */
+        --accent: light-dark(#205fb6, #68dafa);
+        --line: light-dark(#cbd9ec, #344660);
+        --dwb-text: light-dark(#182840, #f3f7ff);
+        --dwb-muted: light-dark(#4c6079, #c5d4ea);
+        --dwb-soft: light-dark(#596c85, #aec4e0);
+        --dwb-bg: light-dark(#f8fbff, #0b1425);
+        --dwb-surface: light-dark(#ffffff, #152238);
+        --dwb-action: light-dark(#eff5ff, #1c2c46);
+        --dwb-input-bg: light-dark(#ffffff, #1a2b45);
+        --dwb-input-text: light-dark(#182840, #f3f7ff);
+        --dwb-pill-bg: light-dark(#e7f3ff, #173952);
+        --dwb-accent-text: light-dark(#155c9a, #94e1ff);
+        --dwb-error-text: light-dark(#b42318, #ffabb9);
+        --dwb-cta: linear-gradient(105deg, #165bb9 0%, #5145ac 60%, #723a9d 100%);
       }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        color: var(--color-text-primary, #17202e);
-        background: var(--color-background-primary, transparent);
+        color: var(--dwb-text);
+        background: var(--dwb-bg);
         font-family: var(--font-sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
-        font-size: 13px;
-        line-height: 1.48;
+        font-size: 14px;
+        line-height: 1.5;
       }
       main {
         max-width: 640px;
@@ -43,35 +55,36 @@
       .identity {
         display: flex;
         align-items: center;
-        gap: 9px;
+        gap: 12px;
+        min-width: 0;
+      }
+      .identity > div:last-child {
+        min-width: 0;
       }
       .logo {
-        width: 37px;
-        height: 37px;
-        display: grid;
-        place-items: center;
-        background: var(--navy);
-        border-radius: 11px;
-        color: #fff;
-        font-size: 15px;
-        font-weight: 900;
-        letter-spacing: -1px;
-      }
-      .logo b {
-        color: var(--accent);
+        width: 56px;
+        height: 56px;
+        flex: none;
+        display: block;
+        object-fit: cover;
+        border-radius: 13px;
+        border: 1px solid var(--line);
+        background: #0b1425;
       }
       h1 {
-        font-size: 15px;
+        font-size: 16px;
         line-height: 1.3;
         font-weight: 800;
+        color: var(--dwb-text);
+        white-space: nowrap;
       }
       h2 {
         font-size: 13px;
         font-weight: 750;
       }
       .meta {
-        font-size: 11px;
-        color: var(--color-text-secondary, #777);
+        font-size: 12px;
+        color: var(--dwb-muted);
       }
       button,
       select,
@@ -83,7 +96,7 @@
       }
       button:disabled,
       select:disabled {
-        opacity: 0.45;
+        opacity: 0.63;
         cursor: not-allowed;
       }
       button:focus-visible,
@@ -94,8 +107,8 @@
       }
       .subtle {
         padding: 7px 10px;
-        background: var(--color-background-secondary, rgba(125, 125, 125, 0.06));
-        color: inherit;
+        background: var(--dwb-action);
+        color: var(--dwb-text);
         border: 1px solid var(--line);
         border-radius: 9px;
       }
@@ -103,8 +116,8 @@
         border-color: var(--accent);
       }
       button.primary {
-        background: var(--accent);
-        color: white;
+        background: var(--dwb-cta);
+        color: #ffffff;
         border: 0;
         border-radius: 10px;
         padding: 11px 13px;
@@ -112,13 +125,14 @@
         font-weight: 750;
         width: 100%;
         margin-top: 7px;
+        box-shadow: 0 4px 14px rgba(48, 77, 164, 0.17);
       }
       button.primary:hover:not(:disabled) {
         filter: brightness(0.94);
       }
       .panel {
         border: 1px solid var(--line);
-        background: var(--color-background-secondary, rgba(140, 140, 140, 0.04));
+        background: var(--dwb-surface);
         border-radius: 14px;
         padding: 13px;
         margin: 12px 0;
@@ -133,16 +147,18 @@
       .kicker {
         text-transform: uppercase;
         letter-spacing: 0.09em;
-        font-size: 10px;
-        color: var(--color-text-secondary, #777);
+        font-size: 11px;
+        color: var(--dwb-soft);
         font-weight: 700;
       }
       .pill {
-        border: 1px solid rgba(250, 70, 22, 0.33);
-        color: var(--accent);
+        border: 1px solid light-dark(#a8cee9, #347da8);
+        background: var(--dwb-pill-bg);
+        color: var(--dwb-accent-text);
         border-radius: 24px;
-        padding: 3px 7px;
-        font-size: 10px;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 700;
         white-space: nowrap;
       }
       .field {
@@ -151,22 +167,22 @@
         margin-bottom: 9px;
       }
       .field label {
-        font-size: 11px;
-        color: var(--color-text-secondary, #777);
+        font-size: 12px;
+        color: var(--dwb-muted);
       }
       .field select,
       .field input {
         width: 100%;
         min-width: 0;
-        min-height: 38px;
+        min-height: 40px;
         border-radius: 9px;
         border: 1px solid var(--line);
-        padding: 8px;
-        background: var(--color-background-primary, #fff);
-        color: var(--color-text-primary, #17202e);
+        padding: 8px 10px;
+        background: var(--dwb-input-bg);
+        color: var(--dwb-input-text);
       }
       .field input::placeholder {
-        color: var(--color-text-secondary, #777);
+        color: var(--dwb-soft);
       }
       .actions {
         display: grid;
@@ -181,15 +197,16 @@
         text-align: left;
         display: grid;
         gap: 4px;
-        background: var(--color-background-secondary, rgba(140, 140, 140, 0.035));
-        color: inherit;
+        background: var(--dwb-action);
+        color: var(--dwb-text);
       }
       .action strong {
-        font-size: 12px;
+        font-size: 13px;
+        color: var(--dwb-text);
       }
       .action small {
-        font-size: 10px;
-        color: var(--color-text-secondary, #777);
+        font-size: 11px;
+        color: var(--dwb-muted);
       }
       .action:hover {
         border-color: var(--accent);
@@ -219,8 +236,8 @@
         flex: 1;
       }
       .note {
-        font-size: 11px;
-        color: var(--color-text-secondary, #777);
+        font-size: 12px;
+        color: var(--dwb-muted);
         margin-top: 5px;
       }
       .reference {
@@ -247,24 +264,24 @@
       .ref-actions select {
         width: 100%;
         border: 1px solid var(--line);
-        background: var(--color-background-primary, #fff);
-        color: var(--color-text-primary, #17202e);
+        background: var(--dwb-input-bg);
+        color: var(--dwb-input-text);
         border-radius: 9px;
         padding: 9px;
       }
       #notice {
         min-height: 19px;
-        color: var(--color-text-secondary, #777);
-        font-size: 11px;
+        color: var(--dwb-muted);
+        font-size: 12px;
         margin: 7px 0 0;
         white-space: pre-wrap;
       }
       #notice.error {
-        color: var(--accent);
+        color: var(--dwb-error-text);
       }
       #context-status {
-        font-size: 10px;
-        color: var(--color-text-secondary, #777);
+        font-size: 12px;
+        color: var(--dwb-muted);
         margin: 5px 0 0;
       }
       #manual {
@@ -274,8 +291,8 @@
         margin: 8px 0;
         resize: vertical;
         border: 1px solid var(--line);
-        background: transparent;
-        color: inherit;
+        background: var(--dwb-input-bg);
+        color: var(--dwb-input-text);
         padding: 8px;
         border-radius: 8px;
       }
@@ -285,8 +302,9 @@
         padding-top: 12px;
       }
       summary {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
+        color: var(--dwb-text);
         cursor: pointer;
       }
       .metrics {
@@ -302,8 +320,8 @@
       }
       .metric span {
         display: block;
-        color: var(--color-text-secondary, #777);
-        font-size: 10px;
+        color: var(--dwb-muted);
+        font-size: 11px;
       }
       .metric b {
         font-size: 17px;
@@ -320,12 +338,27 @@
         border-top: 1px solid var(--line);
         padding-top: 12px;
         margin-top: 18px;
-        font-size: 10px;
-        color: var(--color-text-secondary, #777);
+        font-size: 11px;
+        color: var(--dwb-muted);
+      }
+      #boot-status {
+        margin: -5px 0 12px;
+        color: var(--dwb-muted);
+        font-size: 12px;
       }
       @media (max-width: 400px) {
         main {
           padding: 12px;
+        }
+        .logo {
+          width: 48px;
+          height: 48px;
+        }
+        .identity {
+          gap: 8px;
+        }
+        h1 {
+          font-size: 14px;
         }
         .actions {
           gap: 6px;
@@ -337,7 +370,13 @@
     <main>
       <header>
         <div class="identity">
-          <div class="logo">D<b>W</b>B</div>
+          <img
+            class="logo"
+            src="__DWB_COMPANION_LOGO__"
+            alt="DWB — Dev with Bebz"
+            width="56"
+            height="56"
+          />
           <div>
             <h1>Project Launcher</h1>
             <p class="meta">DWB Companion · <span id="version">connecting</span></p>
@@ -345,6 +384,9 @@
         </div>
         <button id="refresh" class="subtle" type="button" disabled>↻ Refresh</button>
       </header>
+      <p id="boot-status" class="meta" role="status" aria-live="polite">
+        UI resource loaded · waiting for ChatGPT MCP Apps connection…
+      </p>
 
       <section class="panel">
         <div class="panel-title">
@@ -460,6 +502,20 @@
         <span id="updated"></span>
       </footer>
     </main>
+    <script>
+      // Runs before the bundled app so unexpected startup errors aren't a silent blank panel.
+      const bootLabel = document.getElementById('boot-status');
+      if (bootLabel) bootLabel.textContent = 'HTML and boot script loaded · starting MCP bridge…';
+      window.addEventListener('error', (event) => {
+        const label = document.getElementById('boot-status');
+        if (label)
+          label.textContent = 'Panel JavaScript error: ' + String(event.message).slice(0, 170);
+      });
+      window.addEventListener('unhandledrejection', (event) => {
+        const label = document.getElementById('boot-status');
+        if (label) label.textContent = 'Panel promise error: ' + String(event.reason).slice(0, 170);
+      });
+    </script>
     <!-- DWB_COMPANION_SCRIPT -->
   </body>
 </html>

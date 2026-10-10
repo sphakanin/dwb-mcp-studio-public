@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   COMPANION_URI,
   COMPANION_MIME,
@@ -9,7 +10,25 @@ import {
 assert.equal(companionTools[0].name, 'dwb_companion');
 assert.equal(companionTools[0]._meta.ui.resourceUri, COMPANION_URI);
 assert.deepEqual(companionTools[0]._meta['openai/ui']?.entrypoints, [{ type: 'thread' }]);
+assert.equal(companionTools[0]._meta['openai/outputTemplate'], COMPANION_URI);
 assert.equal(COMPANION_MIME, 'text/html;profile=mcp-app');
+// Regression: string replacement of bundled JS once duplicated the HTML document.
+const generatedHtml = readFileSync(
+  new URL('../dist/companion-panel.html', import.meta.url),
+  'utf8',
+);
+assert.equal((generatedHtml.match(/<!doctype html>/gi) ?? []).length, 1);
+assert.ok(!generatedHtml.includes('DWB_COMPANION_SCRIPT'));
+assert.equal((generatedHtml.match(/id="boot-status"/g) ?? []).length, 1);
+assert.ok(!generatedHtml.includes('__DWB_COMPANION_LOGO__'));
+const embeddedLogo = generatedHtml.match(
+  /<img[^>]*class="logo"[^>]*src="data:image\/png;base64,([^"]+)"/,
+);
+assert.ok(embeddedLogo, 'A real PNG brand logo must be embedded in the MCP App HTML');
+assert.equal(
+  Buffer.from(embeddedLogo[1], 'base64').subarray(0, 8).toString('hex'),
+  '89504e470d0a1a0a',
+);
 assert.equal(companionTools[1].name, 'dwb_companion_action');
 assert.deepEqual(companionTools[1]._meta.ui.visibility, ['app']);
 assert.equal(companionTools[2].name, 'dwb_companion_snapshot');

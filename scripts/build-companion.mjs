@@ -7,8 +7,17 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const marker = '<!-- DWB_COMPANION_SCRIPT -->';
+const logoMarker = '__DWB_COMPANION_LOGO__';
 const template = await readFile(resolve(root, 'web/companion.html'), 'utf8');
 if (!template.includes(marker)) throw new Error('Missing companion script marker.');
+if (template.split(logoMarker).length !== 2)
+  throw new Error('Expected exactly one companion logo marker.');
+// MCP Apps render in an isolated iframe: file:// paths and local asset requests won't work.
+// Inlining this small, resized copy keeps the original artwork self-contained and portable.
+const logo = await readFile(resolve(root, 'web/companion-logo.png'));
+if (logo.byteLength > 65536) throw new Error('Companion logo must be under 64 KiB.');
+const logoDataUri = 'data:image/png;base64,' + logo.toString('base64');
+const templateWithLogo = template.replace(logoMarker, () => logoDataUri);
 const { outputFiles } = await build({
   entryPoints: [resolve(root, 'web/companion.ts')],
   bundle: true,
@@ -20,7 +29,14 @@ const { outputFiles } = await build({
   logLevel: 'warning',
 });
 const script = outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-const html = template.replace(marker, '<script>' + script + '</script>');
+// IMPORTANT: pass a replacer callback. A string replacement expands `$&`, `$'`,
+// and `$\`` tokens found in minified JS, which corrupts HTML by inserting copies
+// of the surrounding document (and can prevent the MCP App from loading).
+const html = templateWithLogo.replace(marker, () => '<script>' + script + '</script>');
+const expectedLength =
+  templateWithLogo.length - marker.length + script.length + '<script></script>'.length;
+if (html.length !== expectedLength || html.includes(marker) || html.includes(logoMarker))
+  throw new Error('Companion UI HTML interpolation was corrupted.');
 const dist = resolve(root, 'dist');
 await mkdir(dist, { recursive: true });
 await writeFile(resolve(dist, 'companion-panel.html'), html, 'utf8');

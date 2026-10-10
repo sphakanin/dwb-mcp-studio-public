@@ -85,6 +85,7 @@ async function modern() {
     const entry = tools.tools.find((item: any) => item.name === 'dwb_companion') as any;
     assert.equal(entry?._meta?.ui?.resourceUri, 'ui://dwb-mcp-studio/companion-panel');
     assert.deepEqual(entry?._meta?.['openai/ui']?.entrypoints, [{ type: 'thread' }]);
+    assert.equal(entry?._meta?.['openai/outputTemplate'], 'ui://dwb-mcp-studio/companion-panel');
     assert.ok(companion.contents?.[0] && 'text' in companion.contents[0]);
     assert.ok(
       'text' in companion.contents[0] && companion.contents[0].text.includes('DWB Companion'),
