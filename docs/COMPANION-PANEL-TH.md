@@ -13,7 +13,8 @@ MCP App ใน ChatGPT conversation panel (thread entrypoint) สำหรับ
 - **Allowed Directory Manager**: แสดง Base Policy ปัจจุบัน เพิ่ม/ลบ Root ได้เมื่อยืนยัน Review ที่ยังไม่หมดอายุ และไม่มี active worker; บันทึกไฟล์สำรองก่อนเปลี่ยน Policy
 - **Context Sync**: ใช้ app.updateModelContext ส่งรหัส Workspace ที่เลือกและ references ให้ ChatGPT ในรอบต่อไปแบบไม่ส่งข้อความใหม่ หาก Host รองรับ
 - **Chat-first UX**: ไม่มีปุ่ม Continue with ChatGPT และไม่มี app.sendMessage ที่ส่ง Prompt สำเร็จรูป; ผู้ใช้พิมพ์สั่งงานในแชทเองหลังเลือก Workspace. ใช้ app.updateModelContext เฉพาะเมื่อ Host รองรับ พร้อมหลีกเลี่ยงการ Sync ซ้ำโดยไม่จำเป็น และแจ้งสถานะเมื่อไม่รองรับ
-- **System status**: เก็บ Worker / Session / Skills ไว้ใต้รายละเอียดที่ย่อได้; ข้อความ Boot Diagnostics ซ่อนหลังโหลดสำเร็จ แต่แสดงเมื่อเกิดข้อผิดพลาด
+- **Responsive Side Panel**: เมื่อ Panel แคบปุ่ม Refresh ใช้ไอคอนพร้อม accessible label เพื่อไม่ให้ถูกตัด; คำอธิบาย Workspace Lock ย่อให้กระชับและข้อความ Path ยังคงอ่านได้
+- **System status**: เก็บ Worker / Session / Skills รวมทั้งเวลาที่ Refresh ล่าสุดและข้อความ Policy ไว้ใต้รายละเอียดที่ย่อได้ ไม่แสดง Footer ที่ไม่จำเป็นในหน้าหลัก; ข้อความ Boot Diagnostics ซ่อนหลังโหลดสำเร็จ แต่แสดงเมื่อเกิดข้อผิดพลาด
 
 ## Security และ Project Home
 

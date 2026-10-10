@@ -26,6 +26,15 @@ assert.ok(!generatedHtml.includes('id="ask"'));
 assert.ok(!generatedHtml.includes('id="manual"'));
 assert.ok(generatedHtml.includes('id="related-count"'));
 assert.ok(generatedHtml.includes('id="admin-section"'));
+assert.match(generatedHtml, /id="refresh"[\s\S]*?aria-label="Refresh workspace information"/);
+assert.ok(generatedHtml.includes('class="refresh-label"'));
+assert.ok(
+  generatedHtml.includes('@media (max-width: 560px)'),
+  'Icon-only Refresh at narrow widths',
+);
+assert.ok(generatedHtml.includes('id="system-status"'));
+assert.ok(generatedHtml.indexOf('id="system-status"') < generatedHtml.indexOf('id="updated"'));
+assert.ok(!generatedHtml.includes('<footer>'), 'Policy and refresh time belong in System Status');
 assert.ok(
   generatedHtml.indexOf('id="related-section"') < generatedHtml.indexOf('id="admin-section"'),
   'Supporting workspaces should be visible before advanced administration.',

@@ -147,7 +147,7 @@ function render() {
   if (!snapshot) return;
   const s = snapshot;
   setText('version', s.version);
-  setText('updated', 'Updated ' + new Date(s.updatedAt).toLocaleTimeString());
+  setText('updated', 'Last refreshed: ' + new Date(s.updatedAt).toLocaleTimeString());
   setText('workers', s.broker.activeWorkers + ' / ' + s.broker.workerCap);
   setText('sessions', String(s.broker.sessions));
   setText('queue', String(s.broker.queueDepth));

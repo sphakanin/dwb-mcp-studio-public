@@ -50,6 +50,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        min-width: 0;
         margin-bottom: 17px;
       }
       .identity {
@@ -114,6 +115,15 @@
       }
       .subtle:hover:not(:disabled) {
         border-color: var(--accent);
+      }
+      .refresh-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        flex: none;
+        min-height: 39px;
+        white-space: nowrap;
       }
       button.primary {
         background: var(--dwb-cta);
@@ -321,10 +331,12 @@
         border-bottom: 1px solid var(--line);
         font-size: 11px;
       }
-      footer {
+      .system-meta {
         border-top: 1px solid var(--line);
-        padding-top: 12px;
-        margin-top: 18px;
+        padding-top: 10px;
+        margin-top: 12px;
+        display: grid;
+        gap: 4px;
         font-size: 11px;
         color: var(--dwb-muted);
       }
@@ -518,7 +530,30 @@
         color: var(--dwb-error-text);
         font-size: 12px;
       }
+      @media (max-width: 560px) {
+        .refresh-label {
+          display: none;
+        }
+        .refresh-button {
+          width: 40px;
+          min-width: 40px;
+          height: 40px;
+          padding: 0;
+          font-size: 21px;
+        }
+        .identity .meta {
+          overflow-wrap: anywhere;
+          font-size: 11px;
+          line-height: 1.3;
+        }
+      }
       @media (max-width: 400px) {
+        .panel-title {
+          flex-wrap: wrap;
+        }
+        h1 {
+          white-space: normal;
+        }
         main {
           padding: 12px;
         }
@@ -554,7 +589,16 @@
             <p class="meta">Workspace Manager · <span id="version">connecting</span></p>
           </div>
         </div>
-        <button id="refresh" class="subtle" type="button" disabled>↻ Refresh</button>
+        <button
+          id="refresh"
+          class="subtle refresh-button"
+          type="button"
+          aria-label="Refresh workspace information"
+          title="Refresh workspace information"
+          disabled
+        >
+          <span aria-hidden="true">↻</span><span class="refresh-label">Refresh</span>
+        </button>
       </header>
       <p id="boot-status" class="meta" role="status" aria-live="polite">
         UI resource loaded · waiting for ChatGPT MCP Apps connection…
@@ -718,7 +762,7 @@
 
       <div id="notice" role="status" aria-live="polite"></div>
 
-      <details>
+      <details id="system-status">
         <summary>System status · Workers / Sessions / Skills</summary>
         <div class="metrics">
           <div class="metric"><span>Workers</span><b id="workers">—</b></div>
@@ -735,11 +779,11 @@
           <span class="meta" id="session-count"></span>
         </div>
         <div id="session-list"></div>
+        <div class="system-meta">
+          <p>DWB filesystem policy applies. Project changes require confirmation.</p>
+          <p id="updated">Last refreshed: —</p>
+        </div>
       </details>
-      <footer>
-        DWB filesystem policy applies. Project changes require confirmation.
-        <span id="updated"></span>
-      </footer>
     </main>
     <script>
       // Runs before the bundled app so unexpected startup errors aren't a silent blank panel.
