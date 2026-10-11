@@ -216,6 +216,54 @@ try {
   );
   assert.equal(manifest.verifiedSha256, plan.sha256);
   assert.equal(manifest.autoStarted, false);
+  const inspected = await ps('Start-ComfyUI-Isolated.ps1', [
+    '-Action',
+    'Inspect',
+    '-InstallPath',
+    result.destination,
+    '-Port',
+    String(port),
+  ]);
+  assert.equal(inspected.code, 0, inspected.err);
+  const isolate = doc(inspected.out);
+  assert.equal(isolate.kind, 'dwb-comfyui-isolated-instance-v1');
+  assert.equal(isolate.gpuResourceShared, true, 'Portable is not a GPU sandbox');
+  assert.equal(isolate.listen, '127.0.0.1');
+  assert.equal(isolate.portBusy, true, 'Mock API port is already bound');
+  assert.ok(isolate.paths.base.startsWith(result.destination));
+  assert.ok(isolate.paths.models.startsWith(result.destination));
+  assert.ok(isolate.paths.hfCache.startsWith(result.destination));
+  assert.equal(isolate.changesMade, false);
+  const reservedPort = await ps('Start-ComfyUI-Isolated.ps1', [
+    '-Action',
+    'Inspect',
+    '-InstallPath',
+    result.destination,
+    '-Port',
+    '8188',
+  ]);
+  assert.notEqual(reservedPort.code, 0, 'Port 8188 must be reserved for the existing instance');
+  await assert.rejects(stat(join(result.destination, 'instance-data')), { code: 'ENOENT' });
+  const startWithoutApproval = await ps('Start-ComfyUI-Isolated.ps1', [
+    '-Action',
+    'Launch',
+    '-InstallPath',
+    result.destination,
+    '-Port',
+    String(port),
+  ]);
+  assert.notEqual(startWithoutApproval.code, 0);
+  const startWithOccupiedPort = await ps('Start-ComfyUI-Isolated.ps1', [
+    '-Action',
+    'Launch',
+    '-InstallPath',
+    result.destination,
+    '-Port',
+    String(port),
+    '-UserApproved',
+  ]);
+  assert.notEqual(startWithOccupiedPort.code, 0, 'Running instance must not be replaced');
+  await assert.rejects(stat(join(result.destination, 'instance-data')), { code: 'ENOENT' });
   const repeat = await ps('Install-ComfyUIPortable.ps1', [
     '-Action',
     'Apply',
@@ -228,7 +276,7 @@ try {
   assert.equal((await stat(join(result.destination, 'ComfyUI', 'main.py'))).isFile(), true);
 
   console.log(
-    'COMFYUI_SETUP_TEST_PASS: loopback diagnostics; queue privacy; safe plan; explicit approve; hash; workspace-only extraction; no overwrite',
+    'COMFYUI_SETUP_TEST_PASS: loopback privacy; isolated portable extraction; approval and SHA guards; port 8188 reserved; occupied-port launch blocked; no overwrite',
   );
 } finally {
   if (ready) await new Promise((res) => mock.close(res));

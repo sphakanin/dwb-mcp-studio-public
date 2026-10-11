@@ -41,6 +41,11 @@ try {
   assert.ok(preflight.includes('changesMade'));
   assert.ok(install.includes('UserApproved'));
   assert.ok(install.includes('ApprovedSha256'));
+  const isolated = await store.readSkillFile('comfyui-setup', 'scripts/Start-ComfyUI-Isolated.ps1');
+  assert.ok(isolated.includes('--listen'));
+  assert.ok(isolated.includes('--base-directory'));
+  assert.ok(isolated.includes('--models-directory'));
+  assert.ok(isolated.includes('otherComfyInstanceCount'));
   console.log(
     'COMFYUI_SKILL_PACKAGE_TEST_PASS: local package installs, ASK approval gate, scripts included',
   );

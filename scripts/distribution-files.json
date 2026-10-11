@@ -117,6 +117,7 @@
     "skills/comfyui-setup/SKILL.md",
     "skills/comfyui-setup/scripts/Install-ComfyUIPortable.ps1",
     "skills/comfyui-setup/scripts/Preflight-ComfyUI.ps1",
+    "skills/comfyui-setup/scripts/Start-ComfyUI-Isolated.ps1",
     "src/broker-client.ts",
     "src/companion-panel.ts",
     "src/comfyui-skill-package-test.ts",

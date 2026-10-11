@@ -32,7 +32,7 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 
 ### ComfyUI Setup Assistant (Local Agent Skill — ทดลอง)
 
-เพิ่ม Skill สำหรับให้ ChatGPT ใช้ DWB MCP Studio ตรวจ Environment และช่วยผู้เรียนติดตั้ง ComfyUI อย่างปลอดภัยใน Windows/NVIDIA โดยเริ่มจาก Read-only Preflight ก่อน แล้วเลือก ComfyUI Desktop แบบช่วยติดตั้ง หรือ Windows Portable แบบ Plan → Approval → Apply เฉพาะโฟลเดอร์ใหม่ที่ผู้ใช้อนุญาต ไม่เปลี่ยน Python, CUDA, Driver หรือ ComfyUI ที่กำลังใช้งาน และไม่ดาวน์โหลดโมเดลอัตโนมัติ
+เพิ่ม Skill สำหรับให้ ChatGPT ใช้ DWB MCP Studio ตรวจ Environment และช่วยผู้เรียนติดตั้ง ComfyUI อย่างปลอดภัยใน Windows/NVIDIA โดยคอร์สสาธิตเลือก **Windows Portable แบบแยก Embedded Python/PyTorch, Models, Custom Nodes และ Cache** ภายในโฟลเดอร์ใหม่ ใช้ Read-only Preflight → Plan → Approval → Apply → Inspect → (Separate Launch Approval) ตามลำดับ และใช้ Port 8189 สำหรับ Instance ใหม่เมื่อ Instance เดิมหยุดทำงานแล้ว ไม่ใช้ Manual Git + uv ไม่เปลี่ยน Python, CUDA, Driver หรือ ComfyUI ที่ใช้งานอยู่ และไม่ดาวน์โหลดโมเดลอัตโนมัติ
 
 ไฟล์และคู่มือ: [skills/comfyui-setup/README-TH.md](skills/comfyui-setup/README-TH.md) — ยังเป็น local experiment บน feature branch ไม่ได้รวมใน Public beta release ผู้ใช้ต้องติดตั้ง Local Skill ด้วยตัวเองผ่านหน้า DWB Agent Skills และเลือก Policy ASK/MANUAL
 

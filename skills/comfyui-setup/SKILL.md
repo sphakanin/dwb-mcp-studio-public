@@ -12,6 +12,7 @@ Use this skill for explicit requests to install, verify, or troubleshoot ComfyUI
 - Official installation advice: https://github.com/Comfy-Org/ComfyUI (Desktop recommended for beginners; Portable optional).
 - Official ComfyUI downloads: https://comfy.org/download
 - Official Portable metadata: https://api.github.com/repos/comfyanonymous/ComfyUI/releases
+- Course demo decision: **Windows Portable with its embedded Python/PyTorch in a NEW isolated folder**, never Manual Git + uv for this scenario. Mention Desktop only as a simpler alternative for other beginners.
 - Packaged first: Windows PowerShell + NVIDIA. AMD, Intel, Apple Silicon, Linux require vendor-specific documentation and manual review; never guess CUDA/PyTorch variants.
 - VRAM needs vary by model, quantization, resolution and frame count. Do not promise 720p or 5-second video merely from 8/16 GB VRAM.
 
@@ -30,12 +31,12 @@ Run through the DWB start_process tool from the selected workspace:
 
 The script checks OS/RAM/GPU/VRAM/driver/disk/tools and loopback-only ComfyUI /system_stats and /queue. Queue contents are reduced to counts; never send prompts or private media to ChatGPT. Preflight makes no changes.
 
-Explain the report in Thai. If comfyui.reachable is true, recommend REUSE. Do not reinstall just to demonstrate the Agent. A fresh-install demo belongs in a new empty workspace/clean VM after informed permission.
+Explain the report in Thai. If comfyui.reachable is true, recommend REUSE for normal users. **Exception: an explicitly requested installation teaching demo** may PLAN a second isolated Portable installation in a new dedicated workspace, but may not silently apply the plan or launch it concurrently with the existing ComfyUI GPU process.
 
 ## Stage 2: Select installation route
 
-- Beginner default: ComfyUI Desktop from https://comfy.org/download (official graphical installer). DWB can help select, open and verify it. The user must separately approve a Desktop installer writing outside the DWB project and complete the wizard. Do not silently use winget or change global Python, drivers, Torch or CUDA.
-- Automatable Windows demo: isolated NVIDIA Portable installed into a NEW direct child of the ACTIVE workspace. Variant NvidiaCurrent is for NVIDIA RTX/20-series or newer; NvidiaLegacy is for older NVIDIA 10-series or below after compatibility review.
+- **This course demo always selects isolated Windows NVIDIA Portable**, installed into a NEW direct child folder of the ACTIVE workspace. The bundle has its OWN python_embeded/PyTorch. Variant NvidiaCurrent is for NVIDIA RTX/20-series or newer; NvidiaLegacy is for older NVIDIA 10-series or below after compatibility review.
+- Ordinary beginners may choose ComfyUI Desktop from https://comfy.org/download as a separate tutorial, but do not switch this demo from Portable to Desktop or Manual Git + uv without the user changing the decision explicitly.
 - Unsupported/unknown GPU: stop to explain limitations and alternatives; no forced CUDA installation.
 
 ## Stage 3: Plan before installing
@@ -56,13 +57,20 @@ Use the actual plan tag and 64-character hash, never invented values:
 
 The script refetches metadata, checks official asset origin + SHA, stages and extracts inside the selected DWB workspace, and refuses to overwrite an existing install. No global driver, Python, CUDA, PATH, firewall or model changes.
 
-Never auto-run ComfyUI launch scripts or download gigabytes of models without a new explicit approval.
+Never auto-run ComfyUI launch scripts or download gigabytes of models without a new explicit approval. Do not share models, custom nodes, input/output or caches with another instance. The embedded Portable Python environment must not be replaced with a global Python or a shared .venv.
 
-## Stage 5: Verify in a separate user-approved step
+## Stage 5: Verify installation and isolation before any GPU use
 
 - Check new folder has ComfyUI\main.py, python_embeded\python.exe and run_nvidia_gpu.bat; read .dwb-install-manifest.json.
 - With approval, probe embedded Python --version, without touching system Python or dependencies.
-- Before launch, check port usage, use loopback only, and NEVER kill existing port 8188 service. Wait until /system_stats responds; report ComfyUI/Python/PyTorch.
+- Inspect launch readiness **without starting** using the included script:
+
+  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "<skill_dir>\scripts\Start-ComfyUI-Isolated.ps1" -Action Inspect -InstallPath "<new_install_path>" -Port 8189
+
+- The report lists the independently stored user, models, custom_nodes, input, output, temp, HF/Torch/PIP/UV cache locations and checks loopback port 8189, other ComfyUI processes and GPU free memory.
+- **Never start two CUDA ComfyUI instances on the same GPU during this demo.** Even completely separate software environments share VRAM, GPU compute, system RAM and driver. If the existing instance is running, request that the user stop it _themselves when idle_; do not stop, kill, clear the queue or modify it through the Agent.
+- After the user separately approves Launch, use the same script with `-Action Launch -InstallPath "<new_install_path>" -Port 8189 -UserApproved`. It creates only per-instance folders and starts embedded Python with `--listen 127.0.0.1`, isolated base/user/models/input/output/temp directories and `--disable-partner-nodes`. Never use the default run_nvidia_gpu.bat because it defaults to port 8188.
+- Confirm the new loopback API on 8189 using GET /system_stats; report ComfyUI/Python/PyTorch. A process ID alone is not verification.
 - First image generation is the next lesson. Ask which model to download/use, report size/license/VRAM tradeoffs and obtain consent before downloading or queueing prompts.
 
 ## Troubleshooting boundaries
