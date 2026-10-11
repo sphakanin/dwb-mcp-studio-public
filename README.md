@@ -30,6 +30,12 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 
 กำลังพัฒนา **DWB Project Launcher** ผ่าน ChatGPT Conversation Panel (MCP Apps + MCP Extensions, `thread` entrypoint) ให้เลือกและสลับ Workspace, สร้างโปรเจกต์จาก Starter Templates ภายในโฟลเดอร์ที่อนุญาต, เพิ่ม Existing Project และเลือก Related Workspaces เป็น read-only references พร้อมส่ง Context ให้ ChatGPT โดยไม่ต้องพิมพ์ Path ซ้ำ ดู [คู่มือและรายการตรวจสอบ](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้ยัง **ไม่ได้รวมใน release beta.15** และต้องผ่าน E2E บน ChatGPT Host จริงก่อนแจก
 
+### ComfyUI Setup Assistant (Local Agent Skill — ทดลอง)
+
+เพิ่ม Skill สำหรับให้ ChatGPT ใช้ DWB MCP Studio ตรวจ Environment และช่วยผู้เรียนติดตั้ง ComfyUI อย่างปลอดภัยใน Windows/NVIDIA โดยเริ่มจาก Read-only Preflight ก่อน แล้วเลือก ComfyUI Desktop แบบช่วยติดตั้ง หรือ Windows Portable แบบ Plan → Approval → Apply เฉพาะโฟลเดอร์ใหม่ที่ผู้ใช้อนุญาต ไม่เปลี่ยน Python, CUDA, Driver หรือ ComfyUI ที่กำลังใช้งาน และไม่ดาวน์โหลดโมเดลอัตโนมัติ
+
+ไฟล์และคู่มือ: [skills/comfyui-setup/README-TH.md](skills/comfyui-setup/README-TH.md) — ยังเป็น local experiment บน feature branch ไม่ได้รวมใน Public beta release ผู้ใช้ต้องติดตั้ง Local Skill ด้วยตัวเองผ่านหน้า DWB Agent Skills และเลือก Policy ASK/MANUAL
+
 ### Agent Skills ใน beta.15
 
 Source ปัจจุบันเพิ่มหน้า **Agent Skills** ใน Dashboard สำหรับติดตั้ง Skill ครั้งเดียวจาก **Recommended Skills, GitHub หรือ local folder** แล้วตั้งพฤติกรรมแยกแต่ละ Workspace เป็น **AUTO**, **ASK** หรือ **MANUAL** ได้
