@@ -233,6 +233,28 @@ try {
   assert.ok(isolate.paths.base.startsWith(result.destination));
   assert.ok(isolate.paths.models.startsWith(result.destination));
   assert.ok(isolate.paths.hfCache.startsWith(result.destination));
+  for (const [variable, key] of [
+    ['CUDA_CACHE_PATH', 'cudaCache'],
+    ['TRITON_CACHE_DIR', 'tritonCache'],
+    ['TORCHINDUCTOR_CACHE_DIR', 'torchInductorCache'],
+  ]) {
+    assert.equal(
+      isolate.compilerCacheEnvironment[variable],
+      isolate.paths[key],
+      variable + ' must use the same path the launcher will set on the child',
+    );
+    assert.ok(
+      isolate.paths[key].startsWith(join(result.destination, 'instance-data', 'cache')),
+      variable + ' must remain inside the isolated Portable cache directory',
+    );
+    assert.ok(isolate.environmentIsolation.includes(variable));
+    await assert.rejects(stat(isolate.paths[key]), { code: 'ENOENT' });
+  }
+  const launcherSource = await readFile(resolve(scripts, 'Start-ComfyUI-Isolated.ps1'), 'utf8');
+  assert.match(
+    launcherSource,
+    /\$psi\.EnvironmentVariables\[\$cacheVariable\] = \$compilerCacheEnvironment\[\$cacheVariable\]/,
+  );
   assert.equal(isolate.changesMade, false);
   const reservedPort = await ps('Start-ComfyUI-Isolated.ps1', [
     '-Action',

@@ -52,6 +52,8 @@ Apply จะต้องเพิ่ม ReleaseTag, ApprovedSha256 และ Use
 
 - Python + PyTorch: อยู่ภายใน Portable `python_embeded` ของตัวใหม่
 - Models, Custom Nodes, Input, Output, Temp, User, Hugging Face/Torch/PIP/UV caches: เก็บภายใน `instance-data` ของตัวใหม่ ไม่ชี้ไปโฟลเดอร์ ComfyUI เดิม
+- Compiler Cache ของ NVIDIA CUDA / Triton / TorchInductor: แยกผ่านตัวแปร Environment ของ **Process ใหม่เท่านั้น** โดยใช้ `CUDA_CACHE_PATH=instance-data/cache/cuda`, `TRITON_CACHE_DIR=instance-data/cache/triton` และ `TORCHINDUCTOR_CACHE_DIR=instance-data/cache/torchinductor` (เป็นพาธเต็มภายในโฟลเดอร์ติดตั้งใหม่)
+- คำสั่ง `Inspect` จะแสดงค่าเป้าหมายใน JSON ฟิลด์ `compilerCacheEnvironment` โดย **ไม่สร้างโฟลเดอร์หรือเปลี่ยน Environment ใด ๆ** ส่วน `Launch` จะสร้าง Cache Directory เมื่อได้รับอนุมัติและกำหนดค่ากับ Child Process ไม่แก้ System/User Environment
 - API: จำกัดอยู่ที่ `127.0.0.1:8189` ไม่ใช้ Port 8188 ของตัวเดิม
 - Process: **ไม่รันอัตโนมัติ** ต้องขออนุญาต Launch อีกครั้ง ตรวจ Port และ GPU ก่อน
 - VRAM, GPU, Driver, RAM: **ยังใช้ทรัพยากรร่วมกัน** ต่อให้ Python Environment แยกกันก็อาจกระทบ Performance หากเปิดพร้อมกัน

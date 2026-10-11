@@ -47,6 +47,9 @@ $paths = [ordered]@{
   temp = Join-Path $instanceHome 'temp'
   hfCache = Join-Path $cacheRoot 'huggingface'
   torchCache = Join-Path $cacheRoot 'torch'
+  cudaCache = Join-Path $cacheRoot 'cuda'
+  tritonCache = Join-Path $cacheRoot 'triton'
+  torchInductorCache = Join-Path $cacheRoot 'torchinductor'
   pipCache = Join-Path $cacheRoot 'pip'
   uvCache = Join-Path $cacheRoot 'uv'
   processTemp = Join-Path $cacheRoot 'tmp'
@@ -88,6 +91,13 @@ if (Get-Command nvidia-smi.exe -ErrorAction SilentlyContinue) {
     }
   }
 }
+# The same mapping is reported by Inspect and applied ONLY to the child
+# ComfyUI process on Launch; user/machine environment variables stay untouched.
+$compilerCacheEnvironment = [ordered]@{
+  CUDA_CACHE_PATH = $paths.cudaCache
+  TRITON_CACHE_DIR = $paths.tritonCache
+  TORCHINDUCTOR_CACHE_DIR = $paths.torchInductorCache
+}
 $report = [ordered]@{
   kind = 'dwb-comfyui-isolated-instance-v1'
   action = $Action
@@ -99,7 +109,8 @@ $report = [ordered]@{
   portBusy = ($portListeners.Count -gt 0)
   gpuMemory = $gpuProbe
   paths = $paths
-  environmentIsolation = @('HF_HOME','HF_HUB_CACHE','TORCH_HOME','XDG_CACHE_HOME','PIP_CACHE_DIR','UV_CACHE_DIR','TEMP','TMP','PYTHONPATH')
+  compilerCacheEnvironment = $compilerCacheEnvironment
+  environmentIsolation = @('HF_HOME','HF_HUB_CACHE','TORCH_HOME','XDG_CACHE_HOME','PIP_CACHE_DIR','UV_CACHE_DIR','TEMP','TMP','PYTHONPATH','CUDA_CACHE_PATH','TRITON_CACHE_DIR','TORCHINDUCTOR_CACHE_DIR')
   gpuResourceShared = $true
   safeToLaunch = ($portListeners.Count -eq 0 -and $otherComfy.Count -eq 0 -and
                    $gpuProbe.available -and $gpuProbe.freeMiB -ge 3072)
@@ -158,6 +169,9 @@ $psi.EnvironmentVariables['TEMP'] = $paths.processTemp
 $psi.EnvironmentVariables['TMP'] = $paths.processTemp
 $psi.EnvironmentVariables['PYTHONNOUSERSITE'] = '1'
 $psi.EnvironmentVariables['PYTHONPATH'] = ''
+foreach($cacheVariable in $compilerCacheEnvironment.Keys) {
+  $psi.EnvironmentVariables[$cacheVariable] = $compilerCacheEnvironment[$cacheVariable]
+}
 $proc = [System.Diagnostics.Process]::Start($psi)
 if (-not $proc) { Fail 'ComfyUI process was not created.' }
 [ordered]@{

@@ -46,6 +46,10 @@ try {
   assert.ok(isolated.includes('--base-directory'));
   assert.ok(isolated.includes('--models-directory'));
   assert.ok(isolated.includes('otherComfyInstanceCount'));
+  for (const key of ['CUDA_CACHE_PATH', 'TRITON_CACHE_DIR', 'TORCHINDUCTOR_CACHE_DIR']) {
+    assert.ok(isolated.includes(key), key + ' should be included in the local skill package');
+  }
+  assert.ok(isolated.includes('$psi.EnvironmentVariables[$cacheVariable]'));
   console.log(
     'COMFYUI_SKILL_PACKAGE_TEST_PASS: local package installs, ASK approval gate, scripts included',
   );
