@@ -121,6 +121,9 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   const roots = await allowedRoots();
   const homes = await projectHomes(roots);
   const workspaces = workspaceStore.list();
+  const presentation = workspaceStore.presentationSettings();
+  const demoIds = new Set(presentation.demoWorkspaceIds);
+  const shown = presentation.enabled ? workspaces.filter((w) => demoIds.has(w.id)) : workspaces;
   const current = workspaceStore.current(sessionId);
   const contextKey = registry.sessionStatus(sessionId).contextKey;
   const selectionLocked = Boolean(current || workspaceStore.contextLock(contextKey));
@@ -136,7 +139,8 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   const common = makeCompanionSnapshot({
     broker: registry.status,
     current,
-    workspaces,
+    workspaces: shown,
+    presentation,
     selectionLocked,
     related: workspaceStore.related(sessionId),
     projectHomes: homes,
@@ -145,12 +149,13 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
     sessions: registry.listSessions().map((session) => ({
       ...session,
       workspaceName: workspaceStore.current(String(session.sessionId))?.name ?? null,
+      workspaceId: workspaceStore.current(String(session.sessionId))?.id ?? null,
     })),
   });
   // The model-visible launch result stays path-redacted. Only app-only tools receive paths.
   if (!appDetails) return common;
   const details = await Promise.all(
-    workspaces.map(async (w) => {
+    shown.map(async (w) => {
       const exists = (await stat(w.root).catch(() => null))?.isDirectory() === true;
       const status = w.archivedAt
         ? 'archived'
@@ -162,8 +167,8 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
       return {
         id: w.id,
         name: w.name,
-        path: w.root,
-        parent: basename(dirname(w.root)),
+        path: presentation.enabled ? '(path masked for recording)' : w.root,
+        parent: presentation.enabled ? 'Demo Workspace' : basename(dirname(w.root)),
         status,
         archivedAt: w.archivedAt,
         usage: workspaceStore.usage(w.id),
@@ -172,14 +177,21 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   );
   let allowedDirectories: string[] = [];
   let policyError: string | null = null;
-  try {
-    allowedDirectories = (await readBasePolicy()).roots;
-  } catch (error) {
-    policyError = String(error);
+  if (!presentation.enabled) {
+    try {
+      allowedDirectories = (await readBasePolicy()).roots;
+    } catch (error) {
+      policyError = String(error);
+    }
   }
   return {
     ...common,
-    currentWorkspace: current ? { id: current.id, name: current.name, path: current.root } : null,
+    currentWorkspace: common.currentWorkspace
+      ? {
+          ...common.currentWorkspace,
+          path: presentation.enabled ? '(path masked for recording)' : current!.root,
+        }
+      : null,
     workspaces: details,
     allowedDirectories,
     policyError,
@@ -233,7 +245,51 @@ async function controlTool(
     return textResult(await companionSnapshot(sessionId, name === 'dwb_companion_snapshot'));
   if (name === 'dwb_companion_action') {
     const action = argText(args.action);
+    if (action === 'presentation_configure') {
+      workspaceStore.configurePresentation(args.demo_workspace_ids);
+      return textResult({
+        ...(await companionSnapshot(sessionId, true)),
+        message: 'Demo Allowlist saved locally in DWB.',
+      });
+    }
+    if (action === 'presentation_exit') {
+      workspaceStore.setPresentationEnabled(false);
+      return textResult({
+        ...(await companionSnapshot(sessionId, true)),
+        message: 'Presentation Mode off. All registered projects are visible again.',
+      });
+    }
     const roots = await allowedRoots();
+    if (action === 'presentation_enter') {
+      const accessibleIds = workspaceStore
+        .list()
+        .filter(
+          (workspace) =>
+            !workspace.archivedAt &&
+            roots.some((root) => {
+              try {
+                return pathWithin(root, workspace.root);
+              } catch {
+                return false;
+              }
+            }),
+        )
+        .map((workspace) => workspace.id);
+      workspaceStore.setPresentationEnabled(true, accessibleIds);
+      return textResult({
+        ...(await companionSnapshot(sessionId, true)),
+        message: 'Presentation Mode on. Only Demo Workspaces are shown.',
+      });
+    }
+    const presentation = workspaceStore.presentationSettings();
+    if (presentation.enabled) {
+      if (!['switch', 'related_add', 'related_remove'].includes(action))
+        throw new Error(
+          'Exit Presentation Mode before changing workspace administration settings.',
+        );
+      if (!presentation.demoWorkspaceIds.includes(argText(args.workspace_id)))
+        throw new Error('This workspace is not available in Presentation Mode.');
+    }
     if (!roots.length)
       throw new Error('DWB Project Launcher needs a configured allowedDirectories policy.');
     let message = '';

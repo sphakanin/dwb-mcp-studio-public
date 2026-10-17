@@ -7,6 +7,8 @@ import { physicalPath } from './file-observer.js';
 export const WORKSPACE_LOCKED_MESSAGE =
   'DWB_WORKSPACE_LOCKED: This chat is locked to its first workspace. Start a new ChatGPT chat to choose another workspace.';
 
+export type PresentationSettings = { enabled: boolean; demoWorkspaceIds: string[] };
+
 export type WorkspaceView = {
   id: string;
   name: string;
@@ -46,6 +48,65 @@ export function pathWithin(root: string, target: string): boolean {
 
 export class WorkspaceStore {
   constructor(private readonly db: CoreStore) {}
+
+  presentationSettings(): PresentationSettings {
+    const row = this.db.one<{ enabled: number; demo_workspace_ids: string }>(
+      'SELECT enabled,demo_workspace_ids FROM companion_presentation_settings WHERE setting_id=1',
+    );
+    if (!row) return { enabled: false, demoWorkspaceIds: [] };
+    let ids: unknown = [];
+    try {
+      ids = JSON.parse(row.demo_workspace_ids);
+    } catch {
+      // A damaged allowlist must fail closed when Presentation Mode is enabled.
+    }
+    return {
+      enabled: row.enabled === 1,
+      demoWorkspaceIds: [...new Set(strings(ids))],
+    };
+  }
+
+  private savePresentation(settings: PresentationSettings): PresentationSettings {
+    this.db.run(
+      [
+        'INSERT INTO companion_presentation_settings(setting_id,enabled,demo_workspace_ids)',
+        'VALUES(1,?,?) ON CONFLICT(setting_id) DO UPDATE SET',
+        'enabled=excluded.enabled,demo_workspace_ids=excluded.demo_workspace_ids',
+      ].join(' '),
+      [settings.enabled ? 1 : 0, JSON.stringify(settings.demoWorkspaceIds)],
+    );
+    return settings;
+  }
+
+  configurePresentation(ids: unknown): PresentationSettings {
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || !id.trim()))
+      throw new Error('Demo Allowlist must be an array of workspace IDs.');
+    return this.db.transaction(() => {
+      const settings = this.presentationSettings();
+      if (settings.enabled) throw new Error('Exit Presentation Mode before editing the allowlist.');
+      const unique = [...new Set(strings(ids))];
+      if (unique.length > 100)
+        throw new Error('Demo Allowlist can contain at most 100 workspaces.');
+      const known = new Set(this.list().map((workspace) => workspace.id));
+      if (unique.some((id) => !known.has(id)))
+        throw new Error('Demo Allowlist contains an unknown registered workspace.');
+      return this.savePresentation({ enabled: false, demoWorkspaceIds: unique });
+    });
+  }
+
+  setPresentationEnabled(
+    enabled: boolean,
+    eligibleWorkspaceIds: string[] = [],
+  ): PresentationSettings {
+    return this.db.transaction(() => {
+      const settings = this.presentationSettings();
+      if (enabled && !settings.demoWorkspaceIds.some((id) => eligibleWorkspaceIds.includes(id)))
+        throw new Error(
+          'Choose at least one accessible Demo Workspace before entering Presentation Mode.',
+        );
+      return this.savePresentation({ ...settings, enabled });
+    });
+  }
 
   mutationGate(input: { sessionId: string; kind: string; paths: string[] }) {
     const logical = this.current(input.sessionId);

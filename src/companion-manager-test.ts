@@ -25,6 +25,24 @@ try {
   try {
     const store = new WorkspaceStore(db);
     const entry = await store.register({ path: project });
+    assert.deepEqual(store.presentationSettings(), { enabled: false, demoWorkspaceIds: [] });
+    assert.throws(() => store.setPresentationEnabled(true, [entry.id]), /Choose at least one/);
+    assert.throws(() => store.configurePresentation(['nonexistent']), /unknown registered/);
+    store.configurePresentation([entry.id, entry.id]);
+    assert.deepEqual(store.presentationSettings().demoWorkspaceIds, [entry.id]);
+    assert.equal(store.setPresentationEnabled(true, [entry.id]).enabled, true);
+    assert.throws(() => store.configurePresentation([]), /Exit Presentation Mode/);
+    const reopened = new CoreStore(join(tmp, 'workspaces.db'));
+    try {
+      assert.deepEqual(new WorkspaceStore(reopened).presentationSettings(), {
+        enabled: true,
+        demoWorkspaceIds: [entry.id],
+      });
+    } finally {
+      reopened.close();
+    }
+    assert.equal(store.setPresentationEnabled(false).enabled, false);
+    assert.deepEqual(store.configurePresentation([]).demoWorkspaceIds, []);
     store.bindKnown('chat-active', entry);
     assert.throws(() => store.archive(entry.id, 'admin'), /still bound/);
     assert.throws(() => store.unbind('chat-active'), /DWB_WORKSPACE_LOCKED/);

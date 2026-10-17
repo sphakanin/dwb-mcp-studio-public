@@ -100,4 +100,44 @@ for (const privateValue of ['C:/secret/directory', 'D:/private', 'private-sessio
   assert.ok(!serialized.includes(privateValue), 'Panel snapshot exposed local/private metadata');
 }
 assert.ok(!sample.workspaces[0].hasOwnProperty('root'));
+
+const demo = makeCompanionSnapshot({
+  broker: { runtime: { version: 'test' }, sessions: 2 },
+  current: { id: 'hidden', name: 'internal-secret-workspace' },
+  selectionLocked: true,
+  presentation: { enabled: true, demoWorkspaceIds: ['demo'] },
+  workspaces: [
+    { id: 'hidden', name: 'internal-secret-workspace', aliases: ['confidential-alias'] },
+    { id: 'demo', name: 'public-demo' },
+  ],
+  related: [
+    { id: 'hidden', name: 'internal-secret-workspace' },
+    { id: 'demo', name: 'public-demo' },
+  ],
+  projectHomes: [{ id: 'secret-home', name: 'Private Folder' }],
+  sessions: [
+    { workspaceId: 'hidden', workspaceName: 'internal-secret-workspace', state: 'attached' },
+    { workspaceId: 'demo', workspaceName: 'public-demo', state: 'attached' },
+  ],
+  skills: [],
+});
+assert.equal(demo.currentWorkspace, null, 'An unlisted active workspace must be masked');
+assert.equal(demo.selectionLocked, true, 'Masking must preserve the session lock');
+assert.deepEqual(
+  demo.workspaces.map((w) => w.name),
+  ['public-demo'],
+);
+assert.deepEqual(
+  demo.relatedWorkspaces.map((w) => w.name),
+  ['public-demo'],
+);
+assert.deepEqual(
+  demo.sessions.map((s) => s.workspaceName),
+  ['public-demo'],
+);
+assert.deepEqual(demo.projectHomes, []);
+assert.equal(JSON.stringify(demo).includes('internal-secret-workspace'), false);
+assert.ok(generatedHtml.includes('id="presentation-banner"'));
+assert.ok(generatedHtml.includes('id="presentation-exit"'));
+assert.ok(generatedHtml.includes('id="demo-allowlist"'));
 console.log('COMPANION_PANEL_TEST_PASS: metadata, status, workspace selection, redaction');

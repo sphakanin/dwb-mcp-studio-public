@@ -30,6 +30,10 @@ export class CoreStore {
       CREATE TABLE IF NOT EXISTS companion_related_workspaces (
         session_id TEXT NOT NULL, workspace_id TEXT NOT NULL, added_at TEXT NOT NULL,
         PRIMARY KEY(session_id,workspace_id));
+      CREATE TABLE IF NOT EXISTS companion_presentation_settings (
+        setting_id INTEGER PRIMARY KEY CHECK(setting_id=1),
+        enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+        demo_workspace_ids TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS workspace_archives (
         workspace_id TEXT PRIMARY KEY, archived_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS companion_policy_events (

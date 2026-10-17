@@ -37,6 +37,9 @@ export const companionTools = [
             'review_workspace',
             'review_root',
             'apply_review',
+            'presentation_configure',
+            'presentation_enter',
+            'presentation_exit',
           ],
         },
         workspace_id: { type: 'string' },
@@ -49,6 +52,7 @@ export const companionTools = [
           enum: ['archive', 'restore', 'unregister', 'relink', 'root_add', 'root_remove'],
         },
         review_token: { type: 'string' },
+        demo_workspace_ids: { type: 'array', items: { type: 'string' }, maxItems: 100 },
       },
       required: ['action'],
       additionalProperties: false,
@@ -83,7 +87,8 @@ export function makeCompanionSnapshot(input: {
   current: Workspace | null;
   workspaces: Workspace[];
   skills: Skill[];
-  sessions: Array<Session & { workspaceName?: string | null }>;
+  sessions: Array<Session & { workspaceName?: string | null; workspaceId?: string | null }>;
+  presentation?: { enabled: boolean; demoWorkspaceIds: string[] };
   projectHomes?: Array<{ id: string; name: string }>;
   related?: Workspace[];
   allowedWorkspaceIds?: string[];
@@ -91,6 +96,10 @@ export function makeCompanionSnapshot(input: {
 }) {
   const broker = input.broker;
   const runtime = broker.runtime as { version?: string } | undefined;
+  const presentation = input.presentation ?? { enabled: false, demoWorkspaceIds: [] };
+  const visible = new Set(presentation.demoWorkspaceIds);
+  const canShow = (id: string) => !presentation.enabled || visible.has(id);
+  const current = input.current && canShow(input.current.id) ? input.current : null;
   return {
     kind: 'dwb-companion-v1',
     updatedAt: new Date().toISOString(),
@@ -104,24 +113,40 @@ export function makeCompanionSnapshot(input: {
       persistenceHealthy:
         (broker.persistence as { healthy?: boolean } | undefined)?.healthy === true,
     },
-    currentWorkspace: input.current ? { id: input.current.id, name: input.current.name } : null,
+    currentWorkspace: current ? { id: current.id, name: current.name } : null,
     selectionLocked: input.selectionLocked === true || Boolean(input.current),
-    projectHomes: (input.projectHomes ?? []).map((home) => ({ id: home.id, name: home.name })),
-    relatedWorkspaces: (input.related ?? []).slice(0, 5).map((w) => ({ id: w.id, name: w.name })),
-    workspaces: input.workspaces.slice(0, 50).map((w) => ({
-      available:
-        input.allowedWorkspaceIds === undefined || input.allowedWorkspaceIds.includes(w.id),
-      id: w.id,
-      name: w.name,
-      aliases: w.aliases?.slice(0, 4) ?? [],
+    presentation,
+    projectHomes: (presentation.enabled ? [] : (input.projectHomes ?? [])).map((home) => ({
+      id: home.id,
+      name: home.name,
     })),
-    sessions: input.sessions.slice(0, 25).map((s) => ({
-      state: s.state ?? 'unknown',
-      workspaceName: s.workspaceName ?? 'Unbound',
-      ready: s.workerStatus?.ready === true,
-      active: Number(s.inFlight ?? 0),
-      queued: s.queued === true,
-    })),
+    relatedWorkspaces: (input.related ?? [])
+      .filter((w) => canShow(w.id))
+      .slice(0, 5)
+      .map((w) => ({
+        id: w.id,
+        name: w.name,
+      })),
+    workspaces: input.workspaces
+      .filter((w) => canShow(w.id))
+      .slice(0, 50)
+      .map((w) => ({
+        available:
+          input.allowedWorkspaceIds === undefined || input.allowedWorkspaceIds.includes(w.id),
+        id: w.id,
+        name: w.name,
+        aliases: w.aliases?.slice(0, 4) ?? [],
+      })),
+    sessions: input.sessions
+      .filter((s) => !presentation.enabled || (s.workspaceId && canShow(s.workspaceId)))
+      .slice(0, 25)
+      .map((s) => ({
+        state: s.state ?? 'unknown',
+        workspaceName: s.workspaceName ?? 'Unbound',
+        ready: s.workerStatus?.ready === true,
+        active: Number(s.inFlight ?? 0),
+        queued: s.queued === true,
+      })),
     skills: input.skills.slice(0, 30).map((s) => ({
       id: s.id,
       name: s.name,

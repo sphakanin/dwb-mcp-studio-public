@@ -507,6 +507,36 @@
       .related-intro {
         margin: 0 0 10px;
       }
+      .presentation-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 11px 13px;
+        border: 2px solid var(--accent);
+        border-radius: 12px;
+        background: var(--dwb-surface);
+        margin-bottom: 13px;
+      }
+      .demo-allowlist {
+        display: grid;
+        gap: 7px;
+        max-height: 240px;
+        overflow-y: auto;
+        margin: 10px 0;
+      }
+      .demo-option {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .demo-option input {
+        width: auto;
+      }
       #notice:empty {
         display: none;
       }
@@ -603,6 +633,12 @@
       <p id="boot-status" class="meta" role="status" aria-live="polite">
         UI resource loaded · waiting for ChatGPT MCP Apps connection…
       </p>
+
+      <aside id="presentation-banner" class="presentation-banner hidden" role="status">
+        <strong>● Presentation Mode ON · Demo Workspaces only</strong>
+        <button id="presentation-exit" class="subtle" type="button">Exit Presentation Mode</button>
+        <p class="note">Display privacy only — DWB file permissions are unchanged.</p>
+      </aside>
 
       <section class="panel">
         <div class="panel-title">
@@ -713,6 +749,27 @@
           Workspace administration <span class="meta">· Projects & permissions</span>
         </summary>
         <p class="note">Archive, relink and manage allowed folders here. Actions require review.</p>
+        <details id="presentation-settings" class="manager-section">
+          <summary>Advanced Settings · Presentation Mode / Demo Allowlist</summary>
+          <p class="note">
+            Select which registered workspaces may be shown while recording. Settings are saved in
+            local DWB, not browser storage. This hides UI entries only, not file access.
+          </p>
+          <div
+            id="demo-allowlist"
+            class="demo-allowlist"
+            aria-label="Demo Workspace Allowlist"
+          ></div>
+          <p id="demo-selection-status" class="note"></p>
+          <div class="row">
+            <button id="demo-save" class="subtle" type="button" disabled>
+              Save Demo Allowlist
+            </button>
+            <button id="presentation-enter" class="subtle" type="button" disabled>
+              Enter Presentation Mode
+            </button>
+          </div>
+        </details>
         <details id="registry-section" class="manager-section">
           <summary>
             Manage registered projects <span class="meta">· Archive / Restore / Relink</span>
