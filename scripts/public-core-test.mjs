@@ -239,6 +239,96 @@ try {
     workspace_id: panelCreatedId,
   });
   assert.equal(sameViaPanel.structuredContent.currentWorkspace.name, 'panel-launch-site');
+
+  // Presentation Mode: exercise real app-only and model-visible endpoints against
+  // this harness's temporary SQLite/policy, never the live DWB registry.
+  const policyBeforePresentation = await readFile(policyPath, 'utf8');
+  const registryBeforePresentation = (
+    await call(a, 'dwb_companion_snapshot')
+  ).structuredContent.workspaces
+    .map((w) => w.id)
+    .sort();
+  await assert.rejects(
+    call(a, 'dwb_companion_action', { action: 'presentation_enter' }),
+    /Choose at least one accessible Demo Workspace/,
+  );
+  await assert.rejects(
+    call(a, 'dwb_companion_action', {
+      action: 'presentation_configure',
+      demo_workspace_ids: ['unknown-workspace'],
+    }),
+    /unknown registered workspace/,
+  );
+  const allowlisted = await call(a, 'dwb_companion_action', {
+    action: 'presentation_configure',
+    demo_workspace_ids: [referenceId],
+  });
+  assert.deepEqual(allowlisted.structuredContent.presentation, {
+    enabled: false,
+    demoWorkspaceIds: [referenceId],
+  });
+  const presentationEntered = await call(a, 'dwb_companion_action', {
+    action: 'presentation_enter',
+  });
+  const present = presentationEntered.structuredContent;
+  assert.equal(present.presentation.enabled, true);
+  assert.equal(present.currentWorkspace, null, 'Hidden locked workspace must be masked');
+  assert.equal(present.selectionLocked, true, 'Chat workspace lock must survive masking');
+  assert.deepEqual(
+    present.workspaces.map((w) => w.name),
+    ['panel-reference'],
+  );
+  assert.deepEqual(present.relatedWorkspaces, []);
+  assert.deepEqual(present.allowedDirectories, []);
+  assert.deepEqual(present.sessions, [], 'Hidden sessions must not be present');
+  assert.equal(present.broker.sessions, 0, 'Hidden session count must not leak');
+  assert.equal(present.workspaces[0].path, '(path masked for recording)');
+  assert.deepEqual(present.workspaces[0].usage, { bindings: 0, references: 0 });
+  const outputDuringRecording = JSON.stringify(present);
+  for (const secret of ['panel-launch-site', testDir, 'session_workspace_bindings']) {
+    assert.equal(outputDuringRecording.includes(secret), false, 'Presentation path/name leak');
+  }
+  const otherChatAppSnapshot = (await call(b, 'dwb_companion_snapshot')).structuredContent;
+  assert.equal(otherChatAppSnapshot.presentation.enabled, true, 'New chats share stored settings');
+  assert.deepEqual(
+    otherChatAppSnapshot.workspaces.map((w) => w.name),
+    ['panel-reference'],
+  );
+  assert.equal(
+    JSON.stringify(otherChatAppSnapshot).includes('panel-launch-site'),
+    false,
+    'Other chat app snapshot must not expose hidden projects',
+  );
+  const modelSnapshot = (await call(b, 'dwb_companion')).structuredContent;
+  assert.equal(modelSnapshot.presentation.enabled, true);
+  assert.deepEqual(
+    modelSnapshot.workspaces.map((w) => w.name),
+    ['panel-reference'],
+  );
+  assert.equal(JSON.stringify(modelSnapshot).includes(testDir), false);
+  await assert.rejects(
+    call(a, 'dwb_companion_action', {
+      action: 'related_add',
+      workspace_id: panelCreatedId,
+    }),
+    /not available in Presentation Mode/,
+  );
+  await assert.rejects(
+    call(a, 'dwb_companion_action', { action: 'switch', workspace_id: referenceId }),
+    /DWB_WORKSPACE_LOCKED/,
+  );
+  const afterExit = await call(b, 'dwb_companion_action', { action: 'presentation_exit' });
+  assert.equal(afterExit.structuredContent.presentation.enabled, false);
+  assert.deepEqual(
+    afterExit.structuredContent.workspaces.map((w) => w.id).sort(),
+    registryBeforePresentation,
+    'Exit must restore all pre-existing workspaces',
+  );
+  const normalAfterPresentation = (await call(a, 'dwb_companion_snapshot')).structuredContent;
+  assert.equal(normalAfterPresentation.currentWorkspace.id, panelCreatedId);
+  assert.equal(normalAfterPresentation.selectionLocked, true);
+  assert.equal(await readFile(policyPath, 'utf8'), policyBeforePresentation);
+  assert.deepEqual(normalAfterPresentation.relatedWorkspaces, []);
   await assert.rejects(call(a, 'workspace', { action: 'unbind' }), /DWB_WORKSPACE_LOCKED/);
   await assert.rejects(
     call(b, 'dwb_companion_action', {

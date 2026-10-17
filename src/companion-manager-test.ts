@@ -61,9 +61,49 @@ try {
     const another = await store.register({ path: project });
     await assert.rejects(store.relink(entry.id, project, 'admin'), /already registered/);
     assert.equal(store.exact(entry.id).root, await realpath(moved));
+
+    // Multi-workspace allowlist and presentation toggles must not mutate Registry,
+    // session bindings, references, events, filesystem contents, or access policy.
+    const captureState = () => ({
+      registry: db.query('SELECT id,root_path,name FROM workspaces ORDER BY id'),
+      bindings: db.query('SELECT * FROM session_workspace_bindings ORDER BY session_id'),
+      references: db.query('SELECT * FROM companion_related_workspaces ORDER BY session_id'),
+      events: db.query('SELECT * FROM workspace_events ORDER BY id'),
+    });
+    const dataBefore = captureState();
+    const policyBeforePresentation = await readFile(policyFile, 'utf8');
+    store.configurePresentation([another.id, entry.id, another.id]);
+    assert.deepEqual(store.presentationSettings().demoWorkspaceIds, [another.id, entry.id]);
+    assert.throws(() => store.setPresentationEnabled(true, []), /Choose at least one/);
+    assert.equal(store.setPresentationEnabled(true, [another.id]).enabled, true);
+    const newChat = new WorkspaceStore(db);
+    assert.deepEqual(newChat.presentationSettings().demoWorkspaceIds, [another.id, entry.id]);
+    assert.deepEqual(captureState(), dataBefore);
+    assert.equal(await readFile(policyFile, 'utf8'), policyBeforePresentation);
+    assert.equal((await stat(join(project, 'KEEP.txt'))).isFile(), true);
     store.archive(entry.id, 'admin');
+    assert.equal(
+      store.presentationSettings().enabled,
+      true,
+      'Mode does not block direct Registry semantics',
+    );
     assert.equal(store.unregister(entry.id, 'admin').unregistered, entry.id);
     assert.throws(() => store.exact(entry.id), /Unknown workspace ID/);
+    assert.equal(
+      store.presentationSettings().enabled,
+      true,
+      'Registry mutations do not disable presentation',
+    );
+    assert.equal(store.setPresentationEnabled(false).enabled, false);
+    assert.equal(
+      store.exact(another.id).root,
+      String(
+        (dataBefore.registry as Array<{ id: string; root_path: string }>).find(
+          (w) => w.id === another.id,
+        )?.root_path,
+      ),
+      'Presentation must not change the original registered root',
+    );
     assert.equal((await stat(join(project, 'KEEP.txt'))).isFile(), true);
     const events = db.query<{ type: string }>('SELECT type FROM workspace_events ORDER BY id');
     for (const event of ['archived', 'restored', 'relinked', 'unregistered'])
@@ -92,6 +132,13 @@ try {
       /excessive access/,
     );
     assert.equal((await readBasePolicy(policyFile)).roots.length, 1);
+
+    // A corrupt stored allowlist must fail closed, not reveal all workspaces.
+    db.run(
+      'UPDATE companion_presentation_settings SET enabled=1,demo_workspace_ids=? WHERE setting_id=1',
+      ['not valid JSON'],
+    );
+    assert.deepEqual(store.presentationSettings(), { enabled: true, demoWorkspaceIds: [] });
   } finally {
     db.close();
   }

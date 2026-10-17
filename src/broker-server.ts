@@ -172,7 +172,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
         parent: presentation.enabled ? 'Demo Workspace' : basename(dirname(w.root)),
         status,
         archivedAt: w.archivedAt,
-        usage: workspaceStore.usage(w.id),
+        usage: presentation.enabled ? { bindings: 0, references: 0 } : workspaceStore.usage(w.id),
       };
     }),
   );
