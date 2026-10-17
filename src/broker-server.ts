@@ -143,6 +143,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
     presentation,
     selectionLocked,
     related: workspaceStore.related(sessionId),
+    referenceLimitReached: workspaceStore.related(sessionId).length >= 5,
     projectHomes: homes,
     allowedWorkspaceIds: available.map((w) => w.id),
     skills: skillStore.list(current?.id),
@@ -261,20 +262,27 @@ async function controlTool(
     }
     const roots = await allowedRoots();
     if (action === 'presentation_enter') {
-      const accessibleIds = workspaceStore
-        .list()
-        .filter(
-          (workspace) =>
-            !workspace.archivedAt &&
-            roots.some((root) => {
-              try {
-                return pathWithin(root, workspace.root);
-              } catch {
-                return false;
-              }
-            }),
+      const candidates = workspaceStore.list().filter(
+        (workspace) =>
+          !workspace.archivedAt &&
+          roots.some((root) => {
+            try {
+              return pathWithin(root, workspace.root);
+            } catch {
+              return false;
+            }
+          }),
+      );
+      const accessibleIds = (
+        await Promise.all(
+          candidates.map(async (workspace) => ({
+            id: workspace.id,
+            exists: (await stat(workspace.root).catch(() => null))?.isDirectory() === true,
+          })),
         )
-        .map((workspace) => workspace.id);
+      )
+        .filter((entry) => entry.exists)
+        .map((entry) => entry.id);
       workspaceStore.setPresentationEnabled(true, accessibleIds);
       return textResult({
         ...(await companionSnapshot(sessionId, true)),

@@ -91,6 +91,7 @@ export function makeCompanionSnapshot(input: {
   presentation?: { enabled: boolean; demoWorkspaceIds: string[] };
   projectHomes?: Array<{ id: string; name: string }>;
   related?: Workspace[];
+  referenceLimitReached?: boolean;
   allowedWorkspaceIds?: string[];
   selectionLocked?: boolean;
 }) {
@@ -105,17 +106,18 @@ export function makeCompanionSnapshot(input: {
     updatedAt: new Date().toISOString(),
     version: runtime?.version ?? 'unknown',
     broker: {
-      workerCap: Number(broker.workerCap ?? 0),
-      activeWorkers: Number(broker.activeWorkers ?? 0),
-      queueDepth: Number(broker.queueDepth ?? 0),
-      sessions: Number(broker.sessions ?? 0),
-      inFlightCalls: Number(broker.inFlightCalls ?? 0),
+      workerCap: presentation.enabled ? 0 : Number(broker.workerCap ?? 0),
+      activeWorkers: presentation.enabled ? 0 : Number(broker.activeWorkers ?? 0),
+      queueDepth: presentation.enabled ? 0 : Number(broker.queueDepth ?? 0),
+      sessions: presentation.enabled ? 0 : Number(broker.sessions ?? 0),
+      inFlightCalls: presentation.enabled ? 0 : Number(broker.inFlightCalls ?? 0),
       persistenceHealthy:
         (broker.persistence as { healthy?: boolean } | undefined)?.healthy === true,
     },
     currentWorkspace: current ? { id: current.id, name: current.name } : null,
     selectionLocked: input.selectionLocked === true || Boolean(input.current),
     presentation,
+    referenceLimitReached: input.referenceLimitReached === true,
     projectHomes: (presentation.enabled ? [] : (input.projectHomes ?? [])).map((home) => ({
       id: home.id,
       name: home.name,
@@ -147,7 +149,7 @@ export function makeCompanionSnapshot(input: {
         active: Number(s.inFlight ?? 0),
         queued: s.queued === true,
       })),
-    skills: input.skills.slice(0, 30).map((s) => ({
+    skills: (presentation.enabled ? [] : input.skills).slice(0, 30).map((s) => ({
       id: s.id,
       name: s.name,
       policy: s.policy,

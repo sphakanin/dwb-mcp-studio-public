@@ -224,6 +224,17 @@
       .hidden {
         display: none !important;
       }
+      /* Never show stale workspace labels or paths while fetching a fresh snapshot.
+         The launch HTML has only neutral placeholders; no cached project list is painted. */
+      body.refreshing-snapshot #workspace-picker,
+      body.refreshing-snapshot #current-name,
+      body.refreshing-snapshot #current-path,
+      body.refreshing-snapshot #related-section,
+      body.refreshing-snapshot #admin-section,
+      body.refreshing-snapshot #system-status,
+      body.refreshing-snapshot #project-creation-actions {
+        visibility: hidden;
+      }
       .form-panel {
         border: 1px solid var(--line);
         padding: 12px;
@@ -265,19 +276,33 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .ref-actions {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 7px;
-        margin-top: 8px;
+      .reference-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        list-style: none;
+        margin-bottom: 0;
       }
-      .ref-actions select {
-        width: 100%;
-        border: 1px solid var(--line);
-        background: var(--dwb-input-bg);
-        color: var(--dwb-input-text);
-        border-radius: 9px;
-        padding: 9px;
+      .reference-summary::-webkit-details-marker {
+        display: none;
+      }
+      .reference-summary::before {
+        content: '▸';
+        color: var(--accent);
+      }
+      #related-section[open] .reference-summary::before {
+        content: '▾';
+      }
+      #related-section[open] .related-intro {
+        margin-top: 12px;
+      }
+      #related-section #related-results {
+        max-height: 200px;
+        margin: 7px 0;
+      }
+      #related-section .workspace-choice {
+        min-height: 38px;
       }
       #notice {
         color: var(--dwb-muted);
@@ -726,23 +751,37 @@
         <button class="primary" type="submit">Register & lock to this chat</button>
       </form>
 
-      <section class="panel" id="related-section">
-        <div class="panel-title">
-          <h2>Reference Workspaces</h2>
+      <details class="panel" id="related-section">
+        <summary class="reference-summary">
+          <strong>Reference Workspaces</strong>
           <span class="pill" id="related-count">0 / 5</span>
-        </div>
+          <span class="meta">Optional</span>
+        </summary>
         <p class="note related-intro">
-          Add supporting projects for ChatGPT to reference. Your locked workspace and file
-          permissions stay unchanged.
+          Optional — you do not need to select one. Reference Workspaces let ChatGPT read supporting
+          information from another project; they are not the primary workspace you edit. References
+          remain read-only; maximum 5. The workspace lock and file permissions are unchanged.
         </p>
         <div id="related-list"></div>
-        <div class="ref-actions">
-          <select id="related-picker" aria-label="Choose a supporting workspace">
-            <option>Select supporting project…</option>
-          </select>
-          <button class="subtle" id="related-add" type="button" disabled>+ Add</button>
+        <div class="field">
+          <label for="related-search">Find a reference project (optional)</label>
+          <input
+            id="related-search"
+            type="search"
+            autocomplete="off"
+            placeholder="Search accessible workspaces…"
+          />
         </div>
-      </section>
+        <div
+          id="related-results"
+          class="project-results"
+          aria-label="Reference workspace choices"
+        ></div>
+        <p id="related-selected" class="note">Choose an optional reference above.</p>
+        <button class="subtle" id="related-add" type="button" disabled>
+          + Add read-only reference
+        </button>
+      </details>
 
       <details id="admin-section" class="manager-section admin-section">
         <summary>
@@ -849,14 +888,14 @@
       window.addEventListener('error', (event) => {
         const label = document.getElementById('boot-status');
         if (label) {
-          label.textContent = 'Panel JavaScript error: ' + String(event.message).slice(0, 170);
+          label.textContent = 'Panel JavaScript error. Details hidden to protect project privacy.';
           label.classList.remove('hidden');
         }
       });
       window.addEventListener('unhandledrejection', (event) => {
         const label = document.getElementById('boot-status');
         if (label) {
-          label.textContent = 'Panel promise error: ' + String(event.reason).slice(0, 170);
+          label.textContent = 'Panel promise error. Details hidden to protect project privacy.';
           label.classList.remove('hidden');
         }
       });

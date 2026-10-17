@@ -84,6 +84,7 @@ export function createWorkspaceManager(
     if (locked) {
       selectedId = null;
       (byId('switch-submit') as HTMLButtonElement).disabled = true;
+      byId('selected-location').textContent = 'Workspace selection is locked for this chat.';
       return;
     }
     const query = (byId('project-search') as HTMLInputElement).value.trim().toLowerCase();

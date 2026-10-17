@@ -38,6 +38,7 @@ type Snapshot = {
   currentWorkspace: Workspace | null;
   selectionLocked?: boolean;
   presentation?: { enabled: boolean; demoWorkspaceIds: string[] };
+  referenceLimitReached?: boolean;
   workspaces: Workspace[];
   allowedDirectories?: string[];
   policyError?: string | null;
@@ -65,6 +66,8 @@ let connected = false;
 let busy = false;
 let lastSyncedContext: string | null = null;
 let demoDraft: Set<string> | null = null;
+let selectedReferenceId: string | null = null;
+let referenceMode: boolean | null = null;
 const bootMessage = (message: string, show = true) => {
   setText('boot-status', message);
   get('boot-status').classList.toggle('hidden', !show);
@@ -182,6 +185,68 @@ function renderDemoSettings(s: Snapshot) {
   button('presentation-enter').disabled = busy || !connected || changed || !accessible;
 }
 
+function renderReferencePicker(s: Snapshot) {
+  const recording = s.presentation?.enabled === true;
+  const details = get('related-section') as HTMLDetailsElement;
+  if (referenceMode !== recording) {
+    details.open = s.relatedWorkspaces.length > 0;
+    referenceMode = recording;
+  }
+  setText(
+    'related-count',
+    recording
+      ? s.relatedWorkspaces.length + ' visible · max 5'
+      : s.relatedWorkspaces.length + ' / 5',
+  );
+  details.classList.toggle('hidden', !s.currentWorkspace && !(recording && s.selectionLocked));
+  const already = new Set(s.relatedWorkspaces.map((w) => w.id));
+  const choices = s.workspaces.filter(
+    (w) =>
+      w.id !== s.currentWorkspace?.id &&
+      w.available !== false &&
+      w.status !== 'archived' &&
+      w.status !== 'missing' &&
+      w.status !== 'outside' &&
+      !already.has(w.id),
+  );
+  if (selectedReferenceId && !choices.some((w) => w.id === selectedReferenceId))
+    selectedReferenceId = null;
+  const query = input('related-search').value.trim().toLocaleLowerCase();
+  const matching = choices.filter((w) => w.name.toLocaleLowerCase().includes(query));
+  const root = get('related-results');
+  root.replaceChildren();
+  for (const workspace of matching.slice(0, query ? 12 : 6)) {
+    const choice = document.createElement('button');
+    choice.type = 'button';
+    choice.className = 'workspace-choice' + (selectedReferenceId === workspace.id ? ' chosen' : '');
+    choice.disabled = busy;
+    choice.textContent = (selectedReferenceId === workspace.id ? '✓ ' : '→ ') + workspace.name;
+    choice.addEventListener('click', () => {
+      selectedReferenceId = workspace.id;
+      renderReferencePicker(s);
+    });
+    root.append(choice);
+  }
+  if (!matching.length) {
+    const empty = document.createElement('p');
+    empty.className = 'meta';
+    empty.textContent = 'No matching accessible reference workspaces.';
+    root.append(empty);
+  }
+  const selected = choices.find((w) => w.id === selectedReferenceId);
+  setText(
+    'related-selected',
+    s.referenceLimitReached
+      ? 'Reference limit reached (5 total). Remove a reference before adding another.'
+      : selected
+        ? 'Selected: ' + selected.name + ' · read-only reference'
+        : 'Optional — no reference selected.',
+  );
+  input('related-search').disabled = !connected || busy || s.referenceLimitReached === true;
+  button('related-add').disabled =
+    !connected || busy || !selected || s.referenceLimitReached === true;
+}
+
 function render() {
   if (!snapshot) return;
   const s = snapshot;
@@ -192,8 +257,7 @@ function render() {
   setText('queue', String(s.broker.queueDepth));
   setText('skills-count', String(s.skills.length) + ' installed');
   setText('session-count', String(s.sessions.length));
-  setText('related-count', s.relatedWorkspaces.length + ' / 5');
-  get('related-section').classList.toggle('hidden', !s.currentWorkspace);
+  renderReferencePicker(s);
   if (s.allowedDirectories) manager.render(s as unknown as ManagerData);
   const presenting = s.presentation?.enabled === true;
   document.body.dataset.presentation = presenting ? 'on' : 'off';
@@ -201,6 +265,10 @@ function render() {
   get('admin-section').classList.toggle('hidden', presenting);
   get('system-status').classList.toggle('hidden', presenting);
   if (presenting) {
+    demoDraft = null;
+    get('demo-allowlist').replaceChildren();
+    input('existing-path').value = '';
+    input('allowed-input').value = '';
     get('project-creation-actions').classList.add('hidden');
     get('create-form').classList.add('hidden');
     get('add-form').classList.add('hidden');
@@ -241,21 +309,7 @@ function render() {
     row.append(name, remove);
     related.append(row);
   }
-  const reference = select('related-picker');
-  const already = new Set(s.relatedWorkspaces.map((w) => w.id));
-  const choices = s.workspaces
-    .filter(
-      (w) =>
-        w.id !== s.currentWorkspace?.id &&
-        w.available !== false &&
-        w.status !== 'archived' &&
-        w.status !== 'missing' &&
-        !already.has(w.id),
-    )
-    .map((w) => ({ value: w.id, title: w.name }));
-  fillSelect(reference, choices, 'No other accessible workspace');
-  button('related-add').disabled =
-    !connected || busy || !choices.length || s.relatedWorkspaces.length >= 5;
+  // The reference picker is searchable and never receives hidden workspaces.
   button('refresh').disabled = !connected || busy;
   smallRows(
     'skills-list',
@@ -340,6 +394,7 @@ async function syncModelContext() {
 async function refresh() {
   if (!app || !connected || busy) return;
   busy = true;
+  document.body.classList.add('refreshing-snapshot');
   render();
   try {
     const result = await app.callServerTool({ name: 'dwb_companion_snapshot', arguments: {} });
@@ -351,10 +406,16 @@ async function refresh() {
     notice('');
   } catch (err) {
     bootMessage('Connected, but workspace refresh failed.');
-    notice('Could not refresh: ' + String(err), true);
+    notice(
+      snapshot?.presentation?.enabled
+        ? 'Could not refresh workspace data. Error details hidden while recording.'
+        : 'Could not refresh: ' + String(err),
+      true,
+    );
   } finally {
     busy = false;
     render();
+    document.body.classList.remove('refreshing-snapshot');
   }
 }
 
@@ -379,6 +440,7 @@ type Action = {
 async function runAction(payload: Action | ManagerAction) {
   if (!app || !connected || busy) return;
   busy = true;
+  if (payload.action === 'presentation_enter') document.body.classList.add('refreshing-snapshot');
   render();
   notice('Applying ' + payload.action.replace('_', ' ') + '…');
   try {
@@ -388,6 +450,15 @@ async function runAction(payload: Action | ManagerAction) {
     snapshot = next;
     if (payload.action === 'presentation_configure' || payload.action === 'presentation_exit')
       demoDraft = null;
+    if (payload.action === 'related_add' || payload.action === 'related_remove') {
+      selectedReferenceId = null;
+      input('related-search').value = '';
+    }
+    if (payload.action === 'presentation_enter') {
+      selectedReferenceId = null;
+      input('related-search').value = '';
+      input('project-search').value = '';
+    }
     bootMessage('', false);
     notice(next.message || 'Updated');
     if (payload.action === 'create') get('create-form').classList.add('hidden');
@@ -410,10 +481,16 @@ async function runAction(payload: Action | ManagerAction) {
     )
       await syncModelContext();
   } catch (err) {
-    notice('Unable to update project: ' + String(err), true);
+    notice(
+      snapshot?.presentation?.enabled
+        ? 'Unable to update project. Error details hidden while recording.'
+        : 'Unable to update project: ' + String(err),
+      true,
+    );
   } finally {
     busy = false;
     render();
+    document.body.classList.remove('refreshing-snapshot');
   }
 }
 
@@ -457,25 +534,19 @@ get('add-form').addEventListener('submit', (event) => {
   event.preventDefault();
   void runAction({ action: 'add_existing', path: input('existing-path').value.trim() });
 });
+input('related-search').addEventListener('input', () => {
+  if (snapshot) renderReferencePicker(snapshot);
+});
 button('related-add').addEventListener('click', () => {
-  const id = select('related-picker').value;
-  if (id) void runAction({ action: 'related_add', workspace_id: id });
+  if (selectedReferenceId)
+    void runAction({ action: 'related_add', workspace_id: selectedReferenceId });
 });
 
 const client = new App({ name: 'DWB Companion', version: '0.2.0' });
 app = client;
-client.ontoolresult = (result) => {
-  try {
-    const next = parseResult(result);
-    if (next) {
-      snapshot = next;
-      bootMessage('Workspace data received · loading project details…');
-      render();
-    }
-  } catch {
-    /* Optional initial host result */
-  }
-};
+// Do not paint the model-visible launch snapshot: it can predate a Presentation Mode
+// toggle in another chat. Fetch an app-only snapshot after connecting before first render.
+client.ontoolresult = () => {};
 client.onhostcontextchanged = (ctx) => {
   if (ctx.theme) applyDocumentTheme(ctx.theme);
   if (ctx.styles?.variables) applyHostStyleVariables(ctx.styles.variables);
@@ -509,17 +580,12 @@ void (async () => {
     connected = true;
     window.clearTimeout(handshakeWarning);
     bootMessage('ChatGPT connected · loading workspace data…');
-    // Reuse the initial tool result when it was delivered during initialization.
-    // Avoid a duplicate snapshot call and unnecessary host state churn.
-    const initial = snapshot as Snapshot | null;
-    if (initial?.allowedDirectories) {
-      await syncModelContext();
-      bootMessage('', false);
-      render();
-    } else await refresh();
-  } catch (error) {
+    // Always fetch current persistent settings; never render an initial cached
+    // model-visible result that might reveal old registry entries for one frame.
+    await refresh();
+  } catch {
     window.clearTimeout(handshakeWarning);
     bootMessage('ChatGPT MCP Apps handshake failed.');
-    notice('ChatGPT MCP Apps host unavailable: ' + String(error), true);
+    notice('ChatGPT MCP Apps host unavailable. Details hidden.', true);
   }
 })();

@@ -106,6 +106,7 @@ const demo = makeCompanionSnapshot({
   current: { id: 'hidden', name: 'internal-secret-workspace' },
   selectionLocked: true,
   presentation: { enabled: true, demoWorkspaceIds: ['demo'] },
+  referenceLimitReached: true,
   workspaces: [
     { id: 'hidden', name: 'internal-secret-workspace', aliases: ['confidential-alias'] },
     { id: 'demo', name: 'public-demo' },
@@ -119,7 +120,7 @@ const demo = makeCompanionSnapshot({
     { workspaceId: 'hidden', workspaceName: 'internal-secret-workspace', state: 'attached' },
     { workspaceId: 'demo', workspaceName: 'public-demo', state: 'attached' },
   ],
-  skills: [],
+  skills: [{ id: 'internal', name: 'CONFIDENTIAL SKILL', policy: 'manual' }],
 });
 assert.equal(demo.currentWorkspace, null, 'An unlisted active workspace must be masked');
 assert.equal(demo.selectionLocked, true, 'Masking must preserve the session lock');
@@ -136,8 +137,41 @@ assert.deepEqual(
   ['public-demo'],
 );
 assert.deepEqual(demo.projectHomes, []);
-assert.equal(JSON.stringify(demo).includes('internal-secret-workspace'), false);
+assert.deepEqual(demo.skills, [], 'No private skill metadata during recording');
+assert.equal(demo.broker.sessions, 0, 'Operational totals must not reveal hidden sessions');
+assert.equal(demo.referenceLimitReached, true, 'Hidden references still count toward maximum');
+for (const secret of [
+  'internal-secret-workspace',
+  'confidential-alias',
+  'CONFIDENTIAL SKILL',
+  'Private Folder',
+]) {
+  assert.equal(JSON.stringify(demo).includes(secret), false);
+}
+const failClosed = makeCompanionSnapshot({
+  broker: {},
+  current: null,
+  workspaces: [{ id: 'hidden', name: 'internal-secret-workspace' }],
+  sessions: [],
+  skills: [],
+  presentation: { enabled: true, demoWorkspaceIds: [] },
+});
+assert.deepEqual(failClosed.workspaces, [], 'Empty allowlist must not fall back to normal UI');
+assert.equal(JSON.stringify(failClosed).includes('internal-secret-workspace'), false);
 assert.ok(generatedHtml.includes('id="presentation-banner"'));
 assert.ok(generatedHtml.includes('id="presentation-exit"'));
 assert.ok(generatedHtml.includes('id="demo-allowlist"'));
+assert.ok(generatedHtml.includes('id="related-search"'));
+assert.ok(generatedHtml.includes('id="related-results"'));
+assert.ok(!generatedHtml.includes('id="related-picker"'), 'Long reference dropdown is removed');
+assert.ok(generatedHtml.includes('Optional — you do not need to select one'));
+assert.ok(
+  generatedHtml.includes('body.refreshing-snapshot'),
+  'Refresh conceals stale workspace data',
+);
+assert.ok(
+  clientSource.includes('client.ontoolresult = () => {};'),
+  'Cached launch snapshot must never paint',
+);
+assert.ok(!clientSource.includes('localStorage'), 'Settings must not use browser localStorage');
 console.log('COMPANION_PANEL_TEST_PASS: metadata, status, workspace selection, redaction');
