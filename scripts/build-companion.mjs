@@ -4,6 +4,11 @@ import { build } from 'esbuild';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  collectCompanionNotices,
+  companionNoticesPath,
+  embedCompanionNotices,
+} from './companion-notices.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const marker = '<!-- DWB_COMPANION_SCRIPT -->';
@@ -18,7 +23,7 @@ const logo = await readFile(resolve(root, 'web/companion-logo.png'));
 if (logo.byteLength > 65536) throw new Error('Companion logo must be under 64 KiB.');
 const logoDataUri = 'data:image/png;base64,' + logo.toString('base64');
 const templateWithLogo = template.replace(logoMarker, () => logoDataUri);
-const { outputFiles } = await build({
+const { outputFiles, metafile } = await build({
   entryPoints: [resolve(root, 'web/companion.ts')],
   bundle: true,
   format: 'iife',
@@ -26,6 +31,7 @@ const { outputFiles } = await build({
   target: 'es2022',
   minify: true,
   write: false,
+  metafile: true,
   logLevel: 'warning',
 });
 const script = outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
@@ -38,6 +44,20 @@ const expectedLength =
 if (html.length !== expectedLength || html.includes(marker) || html.includes(logoMarker))
   throw new Error('Companion UI HTML interpolation was corrupted.');
 const dist = resolve(root, 'dist');
+const notices = await collectCompanionNotices(root, metafile);
+const noticesFile = resolve(root, companionNoticesPath);
+if (process.argv.includes('--update-notices')) {
+  await writeFile(noticesFile, notices, 'utf8');
+} else if ((await readFile(noticesFile, 'utf8')).replaceAll('\r\n', '\n') !== notices) {
+  throw new Error(
+    'Bundled notices are stale. Run node scripts/build-companion.mjs --update-notices and review the changes.',
+  );
+}
+const licensedHtml = embedCompanionNotices(html, notices);
 await mkdir(dist, { recursive: true });
-await writeFile(resolve(dist, 'companion-panel.html'), html, 'utf8');
-console.log('COMPANION_UI_BUILD_PASS (' + Buffer.byteLength(html) + ' bytes)');
+await writeFile(resolve(dist, 'companion-panel.html'), licensedHtml, 'utf8');
+console.log(
+  'COMPANION_UI_BUILD_PASS (' +
+    Buffer.byteLength(licensedHtml) +
+    ' bytes, bundled notices verified)',
+);

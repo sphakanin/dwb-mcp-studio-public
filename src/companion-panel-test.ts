@@ -101,6 +101,50 @@ for (const privateValue of ['C:/secret/directory', 'D:/private', 'private-sessio
 }
 assert.ok(!sample.workspaces[0].hasOwnProperty('root'));
 
+const normalWithHidden = makeCompanionSnapshot({
+  broker: {},
+  current: { id: 'private', name: 'private-already-selected' },
+  workspaces: [
+    { id: 'private', name: 'private-already-selected', hiddenAt: '2026-10-19T00:00:00Z' },
+    { id: 'demo', name: 'safe-demo', hiddenAt: null },
+  ],
+  sessions: [],
+  skills: [],
+});
+assert.deepEqual(
+  normalWithHidden.workspaces.map((w) => w.name),
+  ['safe-demo'],
+  'Hidden workspace is omitted from model-visible selection lists in normal mode',
+);
+assert.equal(
+  normalWithHidden.currentWorkspace?.id,
+  'private',
+  'Current workspace remains selected and locked when hidden',
+);
+const presentationWithHidden = makeCompanionSnapshot({
+  broker: {},
+  current: {
+    id: 'private',
+    name: 'hidden-even-in-demo-allowlist',
+    hiddenAt: '2026-10-19T00:00:00Z',
+  },
+  presentation: { enabled: true, demoWorkspaceIds: ['private', 'demo'] },
+  workspaces: [
+    { id: 'private', name: 'hidden-even-in-demo-allowlist', hiddenAt: '2026-10-19T00:00:00Z' },
+    { id: 'demo', name: 'safe-demo' },
+  ],
+  related: [{ id: 'private', name: 'hidden-even-in-demo-allowlist' }],
+  sessions: [{ workspaceId: 'private', workspaceName: 'hidden-even-in-demo-allowlist' }],
+  skills: [],
+});
+assert.equal(presentationWithHidden.currentWorkspace, null);
+assert.deepEqual(presentationWithHidden.relatedWorkspaces, []);
+assert.deepEqual(presentationWithHidden.sessions, []);
+assert.equal(
+  JSON.stringify(presentationWithHidden).includes('hidden-even-in-demo-allowlist'),
+  false,
+);
+
 const demo = makeCompanionSnapshot({
   broker: { runtime: { version: 'test' }, sessions: 2 },
   current: { id: 'hidden', name: 'internal-secret-workspace' },
@@ -158,6 +202,9 @@ const failClosed = makeCompanionSnapshot({
 });
 assert.deepEqual(failClosed.workspaces, [], 'Empty allowlist must not fall back to normal UI');
 assert.equal(JSON.stringify(failClosed).includes('internal-secret-workspace'), false);
+assert.ok(generatedHtml.includes('option value="hidden"'));
+assert.ok(generatedHtml.includes('Hide/Unhide'));
+assert.ok(clientSource.includes('!w.hidden'), 'Reference and settings pickers must honor Hidden');
 assert.ok(generatedHtml.includes('id="presentation-banner"'));
 assert.ok(generatedHtml.includes('id="presentation-exit"'));
 assert.ok(generatedHtml.includes('id="demo-allowlist"'));

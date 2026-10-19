@@ -203,6 +203,10 @@ export class MacController {
           });
         }
         this.progress = 'Building core…';
+        await run(process.execPath, [resolve(this.root, 'scripts/build-companion.mjs')], {
+          cwd: this.root,
+          env: this.env,
+        });
         await run(
           process.execPath,
           [resolve(this.root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'],

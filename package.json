@@ -1,6 +1,6 @@
 {
   "name": "dwb-mcp-studio-core",
-  "version": "0.1.0-beta.15",
+  "version": "0.1.0-beta.16",
   "private": true,
   "description": "Local multi-worker MCP broker for a separately installed Desktop Commander",
   "type": "module",
@@ -24,6 +24,7 @@
     "!dist/test-policy.js",
     "scripts/start.mjs",
     "scripts/build-companion.mjs",
+    "scripts/companion-notices.mjs",
     "web/",
     "tsconfig.companion.json",
     "scripts/config.mjs",
@@ -74,8 +75,9 @@
     "start": "node scripts/start.mjs",
     "configure": "node scripts/configure.mjs",
     "doctor": "node scripts/doctor.mjs",
-    "test": "npm run typecheck && npm run build && tsx src/request-context-test.ts && tsx src/payload-guard-test.ts && tsx src/worker-circuit-test.ts && tsx src/session-lifecycle-test.ts && tsx src/workspace-binding-test.ts && tsx src/companion-panel-test.ts && tsx src/companion-projects-test.ts && tsx src/companion-manager-test.ts && tsx src/comfyui-skill-package-test.ts && tsx src/skill-store-test.ts && tsx src/skill-sources-test.ts && tsx src/skill-broker-test.ts && tsx src/core-hardening-test.ts && node scripts/public-core-test.mjs && node scripts/dashboard-test.mjs && node scripts/comfyui-setup-test.mjs",
+    "test": "npm run typecheck && npm run build && npm run test:licenses && tsx src/request-context-test.ts && tsx src/payload-guard-test.ts && tsx src/worker-circuit-test.ts && tsx src/session-lifecycle-test.ts && tsx src/workspace-binding-test.ts && tsx src/companion-panel-test.ts && tsx src/companion-projects-test.ts && tsx src/companion-manager-test.ts && tsx src/comfyui-skill-package-test.ts && tsx src/skill-store-test.ts && tsx src/skill-sources-test.ts && tsx src/skill-broker-test.ts && tsx src/core-hardening-test.ts && node scripts/public-core-test.mjs && node scripts/dashboard-test.mjs && node scripts/comfyui-setup-test.mjs",
     "test:comfyui-setup": "node scripts/comfyui-setup-test.mjs",
+    "test:licenses": "node scripts/companion-notices-test.mjs",
     "test:integration": "node scripts/integration-test.mjs",
     "test:setup": "node scripts/test-powershell.mjs setup-test",
     "release": "npm run build:launcher && npm run build && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
@@ -100,15 +102,15 @@
     "prepack": "node scripts/distribution-check.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@modelcontextprotocol/server": "2.3.1",
     "zod": "4.6.2"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
-    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/ext-apps": "2.0.3",
     "@types/node": "22.20.2",
-    "esbuild": "^0.27.3",
+    "esbuild": "0.28.2",
     "prettier": "3.9.6",
     "tsx": "4.23.13",
     "typescript": "7.0.2"

@@ -787,7 +787,10 @@
         <summary>
           Workspace administration <span class="meta">· Projects & permissions</span>
         </summary>
-        <p class="note">Archive, relink and manage allowed folders here. Actions require review.</p>
+        <p class="note">
+          Hide projects from the normal pickers without interrupting existing chats; Archive and
+          permission changes are separate. Actions require review.
+        </p>
         <details id="presentation-settings" class="manager-section">
           <summary>Advanced Settings · Presentation Mode / Demo Allowlist</summary>
           <p class="note">
@@ -811,14 +814,17 @@
         </details>
         <details id="registry-section" class="manager-section">
           <summary>
-            Manage registered projects <span class="meta">· Archive / Restore / Relink</span>
+            Manage registered projects <span class="meta">· Hide / Unhide / Archive</span>
           </summary>
           <p class="note">
-            These actions change the local DWB registry only. They never delete project folders.
+            Hide/Unhide only changes selection-list visibility, even if a project is in use.
+            Archive/Unregister/Relink have separate rules. No project files are deleted.
           </p>
           <div class="manager-toolbar">
             <label for="registry-filter">Show</label>
             <select id="registry-filter">
+              <option value="visible">Visible projects</option>
+              <option value="hidden">Hidden projects</option>
               <option value="attention">Needs attention</option>
               <option value="ready">Ready</option>
               <option value="archived">Archived</option>

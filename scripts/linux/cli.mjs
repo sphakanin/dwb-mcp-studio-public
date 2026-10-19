@@ -109,6 +109,10 @@ async function setup(root, data, env, values) {
         await run('npm', ['ci', '--no-audit', '--no-fund'], { cwd: root, env, timeout: 600000 });
       }
       console.log('Building DWB Core…');
+      await run(process.execPath, [resolve(root, 'scripts/build-companion.mjs')], {
+        cwd: root,
+        env,
+      });
       await run(
         process.execPath,
         [resolve(root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'],

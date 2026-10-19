@@ -47,7 +47,7 @@ let coreDb: CoreStore;
 let workspaceStore: WorkspaceStore;
 let skillStore: SkillStore;
 let registry: SessionRegistry;
-type WorkspaceOperation = 'archive' | 'restore' | 'unregister' | 'relink';
+type WorkspaceOperation = 'archive' | 'restore' | 'unregister' | 'relink' | 'hide' | 'unhide';
 type PendingReview = {
   token: string;
   expiresAt: number;
@@ -55,6 +55,7 @@ type PendingReview = {
   workspaceId?: string;
   workspaceVersion?: string;
   archivedAt?: string | null;
+  hiddenAt?: string | null;
   path?: string;
   rootPlan?: RootPlan;
 };
@@ -124,6 +125,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   const presentation = workspaceStore.presentationSettings();
   const demoIds = new Set(presentation.demoWorkspaceIds);
   const shown = presentation.enabled ? workspaces.filter((w) => demoIds.has(w.id)) : workspaces;
+  const pickerVisible = shown.filter((w) => !w.hiddenAt);
   const current = workspaceStore.current(sessionId);
   const contextKey = registry.sessionStatus(sessionId).contextKey;
   const selectionLocked = Boolean(current || workspaceStore.contextLock(contextKey));
@@ -139,7 +141,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   const common = makeCompanionSnapshot({
     broker: registry.status,
     current,
-    workspaces: shown,
+    workspaces: pickerVisible,
     presentation,
     selectionLocked,
     related: workspaceStore.related(sessionId),
@@ -156,7 +158,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
   // The model-visible launch result stays path-redacted. Only app-only tools receive paths.
   if (!appDetails) return common;
   const details = await Promise.all(
-    shown.map(async (w) => {
+    (presentation.enabled ? pickerVisible : shown).map(async (w) => {
       const exists = (await stat(w.root).catch(() => null))?.isDirectory() === true;
       const status = w.archivedAt
         ? 'archived'
@@ -172,6 +174,7 @@ async function companionSnapshot(sessionId: string, appDetails = false) {
         parent: presentation.enabled ? 'Demo Workspace' : basename(dirname(w.root)),
         status,
         archivedAt: w.archivedAt,
+        hidden: Boolean(w.hiddenAt),
         usage: presentation.enabled ? { bindings: 0, references: 0 } : workspaceStore.usage(w.id),
       };
     }),
@@ -265,6 +268,7 @@ async function controlTool(
       const candidates = workspaceStore.list().filter(
         (workspace) =>
           !workspace.archivedAt &&
+          !workspace.hiddenAt &&
           roots.some((root) => {
             try {
               return pathWithin(root, workspace.root);
@@ -313,10 +317,13 @@ async function controlTool(
       const workspaceId = argText(args.workspace_id);
       const workspace = workspaceStore.exact(workspaceId);
       const operation = argText(args.operation) as WorkspaceOperation;
-      if (!['archive', 'restore', 'unregister', 'relink'].includes(operation))
+      if (!['archive', 'restore', 'unregister', 'relink', 'hide', 'unhide'].includes(operation))
         throw new Error('Invalid workspace management action.');
       const usage = workspaceStore.usage(workspace.id);
-      if (operation !== 'restore' && (usage.bindings || usage.references))
+      if (
+        !['restore', 'hide', 'unhide'].includes(operation) &&
+        (usage.bindings || usage.references)
+      )
         throw new Error(
           'Workspace is still used by a session/reference. Remove the binding first.',
         );
@@ -326,6 +333,10 @@ async function controlTool(
         throw new Error('Workspace is already archived.');
       if (operation === 'restore' && !workspace.archivedAt)
         throw new Error('Workspace is not archived.');
+      if (operation === 'hide' && workspace.hiddenAt)
+        throw new Error('Workspace is already hidden.');
+      if (operation === 'unhide' && !workspace.hiddenAt)
+        throw new Error('Workspace is already visible.');
       const path =
         operation === 'relink'
           ? await assertAllowedDirectory(argText(args.path), roots)
@@ -336,6 +347,7 @@ async function controlTool(
         workspaceId,
         workspaceVersion: workspace.updatedAt,
         archivedAt: workspace.archivedAt,
+        hiddenAt: workspace.hiddenAt,
         path,
         expiresAt: Date.now() + 300_000,
       };
@@ -351,7 +363,11 @@ async function controlTool(
               ? 'Remove only the DWB registry record; physical files will not be deleted.'
               : operation === 'relink'
                 ? 'Keep workspace ID and change its registered path. No files are moved.'
-                : 'Only the DWB workspace registry is changed; physical files remain intact.',
+                : operation === 'hide'
+                  ? 'Hide this project from selection lists. Existing chats, references and file permissions stay unchanged.'
+                  : operation === 'unhide'
+                    ? 'Show this project in selection lists again. Existing bindings stay unchanged.'
+                    : 'Only the DWB workspace registry is changed; physical files remain intact.',
           target: workspace.name,
           path: path ?? workspace.root,
           impact: usage,
@@ -434,16 +450,27 @@ async function controlTool(
         const workspace = workspaceStore.exact(pending.workspaceId!);
         if (
           workspace.updatedAt !== pending.workspaceVersion ||
-          workspace.archivedAt !== pending.archivedAt
+          workspace.archivedAt !== pending.archivedAt ||
+          workspace.hiddenAt !== pending.hiddenAt
         )
           throw new Error('Workspace changed since review. Preview again.');
-        if (pending.operation === 'archive') workspaceStore.archive(workspace.id, sessionId);
+        if (pending.operation === 'hide')
+          workspaceStore.setPickerHidden(workspace.id, true, sessionId);
+        else if (pending.operation === 'unhide')
+          workspaceStore.setPickerHidden(workspace.id, false, sessionId);
+        else if (pending.operation === 'archive') workspaceStore.archive(workspace.id, sessionId);
         else if (pending.operation === 'restore') workspaceStore.restore(workspace.id, sessionId);
         else if (pending.operation === 'unregister')
           workspaceStore.unregister(workspace.id, sessionId);
         else if (pending.operation === 'relink')
           await workspaceStore.relink(workspace.id, pending.path!, sessionId);
-        message = pending.operation + ' completed for ' + workspace.name + ' (registry only).';
+        message =
+          pending.operation === 'hide' || pending.operation === 'unhide'
+            ? workspace.name +
+              (pending.operation === 'hide'
+                ? ' hidden from pickers.'
+                : ' visible in pickers again.')
+            : pending.operation + ' completed for ' + workspace.name + ' (registry only).';
       }
       return textResult({ ...(await companionSnapshot(sessionId, true)), message });
     }

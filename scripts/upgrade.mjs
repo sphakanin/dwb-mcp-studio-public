@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const workerSuffix = join(
@@ -65,7 +66,22 @@ async function copyOwned(source, destination) {
       return true;
     },
   });
-  await rename(stage, destination);
+  // Windows can briefly reject publishing a freshly copied directory. Keep the
+  // staged copy and retry only transient errors while the destination is absent.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(stage, destination);
+      break;
+    } catch (error) {
+      if (
+        attempt >= 5 ||
+        !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) ||
+        (await exists(destination))
+      )
+        throw error;
+      await delay(100 * 2 ** attempt);
+    }
+  }
   return true;
 }
 

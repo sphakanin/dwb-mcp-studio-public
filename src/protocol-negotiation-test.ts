@@ -134,6 +134,37 @@ async function modern() {
       ),
       'App-only snapshot must include registered project location.',
     );
+    const hideReview: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'review_workspace', operation: 'hide', workspace_id: workspaceId },
+    });
+    const hideToken = hideReview.structuredContent?.review?.token;
+    assert.ok(hideToken, 'Hide must require a review token');
+    const hidden: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'apply_review', review_token: hideToken },
+    });
+    assert.ok(
+      hidden.structuredContent?.workspaces?.some((w: any) => w.id === workspaceId && w.hidden),
+    );
+    const hiddenLaunch: any = await client.callTool({ name: 'dwb_companion', arguments: {} });
+    assert.ok(
+      !hiddenLaunch.structuredContent?.workspaces?.some((w: any) => w.id === workspaceId),
+      'Hidden workspace must be absent from normal model-visible picker',
+    );
+    const unhideReview: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'review_workspace', operation: 'unhide', workspace_id: workspaceId },
+    });
+    const unhideToken = unhideReview.structuredContent?.review?.token;
+    assert.ok(unhideToken);
+    const unhidden: any = await client.callTool({
+      name: 'dwb_companion_action',
+      arguments: { action: 'apply_review', review_token: unhideToken },
+    });
+    assert.ok(
+      unhidden.structuredContent?.workspaces?.some((w: any) => w.id === workspaceId && !w.hidden),
+    );
     const reviewed: any = await client.callTool({
       name: 'dwb_companion_action',
       arguments: { action: 'review_workspace', operation: 'archive', workspace_id: workspaceId },

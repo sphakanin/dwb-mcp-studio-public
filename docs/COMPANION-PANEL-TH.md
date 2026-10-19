@@ -7,7 +7,7 @@ MCP App ใน ChatGPT conversation panel (thread entrypoint) สำหรับ
 - **One Chat, One Workspace**: แชทที่ยังไม่เลือกโปรเจกต์จะมีตัวค้นหาและปุ่ม Select & Lock ให้เลือกได้เพียงครั้งเดียว หลังจากนั้นแสดงเฉพาะ Current Workspace และ Full Path; ต้องเปิดแชทใหม่จึงจะเลือกโปรเจกต์อื่นได้
 - **New Project**: ใช้ได้ก่อนเลือก Workspace เท่านั้น; เลือก parent จาก DWB allowedDirectories, ตั้งชื่อ, เลือก Blank / Website / Documentation แล้วสร้างโฟลเดอร์พร้อม Lock ให้แชทโดยไม่เขียนทับ
 - **Add Existing**: ใช้ได้ก่อนเลือก Workspace เท่านั้น; กรอก path ที่มีอยู่ใน Panel ครั้งเดียวเพื่อ register และ lock
-- **Reference Workspaces**: แสดงทันทีใต้ Workspace ปัจจุบัน เลือกโปรเจกต์อื่นเป็นแหล่งอ้างอิงสูงสุด 5 รายการต่อ session; การเพิ่ม/ลบ Reference ไม่เปลี่ยน Active Workspace
+- **Reference Workspaces**: ส่วนอ้างอิงแบบ Optional สำหรับ **อ่าน** ข้อมูลจากโปรเจกต์อื่น ไม่ใช่ Workspace หลักที่ใช้แก้ไข; สูงสุด 5 รายการต่อ session, ใช้ Searchable Picker แทน Dropdown และย่อไว้เป็นค่าเริ่มต้นเมื่อไม่มี Reference; การเพิ่ม/ลบไม่เปลี่ยน Active Workspace
 - **Searchable Project Picker**: แสดงก่อนการเลือกครั้งแรก ค้นหาชื่อ/พาธแล้วกดยืนยัน Select & Lock; หลังเลือกแล้วจะซ่อน Picker ป้องกันการ Switch
 - **Workspace administration**: รวม Manage Registry และ Allowed Directories ไว้ในส่วน Advanced ที่ย่อไว้เป็นค่าเริ่มต้น; Registry แยก Ready / Outside allowed roots / Missing / Archived และรองรับ Archive, Restore, Unregister และ Relink แบบ Review → Confirm โดยไม่ลบไฟล์จริง
 - **Allowed Directory Manager**: แสดง Base Policy ปัจจุบัน เพิ่ม/ลบ Root ได้เมื่อยืนยัน Review ที่ยังไม่หมดอายุ และไม่มี active worker; บันทึกไฟล์สำรองก่อนเปลี่ยน Policy
@@ -38,27 +38,47 @@ Review token อายุ 5 นาที ผูกกับ Session และใ
 - UI resource: ui://dwb-mcp-studio/companion-panel
 - web/companion.ts และ web/companion.html
 - src/companion-projects.ts และ src/companion-panel.ts
-- SQLite tables: `companion_related_workspaces`, `session_workspace_bindings`, `conversation_workspace_locks`
+- SQLite tables: `companion_related_workspaces`, `session_workspace_bindings`, `conversation_workspace_locks`, `companion_presentation_settings`
 - npm run build สร้าง dist/companion-panel.html
 
-## QA ก่อนถ่ายคลิป
+## Hide / Unhide Workspace — ซ่อนจากรายการเลือกในโหมดปกติ
 
-1. npm test
-2. npx tsx src/protocol-negotiation-test.ts
-3. npm run test:distribution
-4. npm run format:check
-5. จบงานเดิมแล้ว Stop MCP/เริ่มใหม่อย่างปลอดภัยตาม docs/UPDATING-TH.md
-6. เปิด DWB Companion ใน ChatGPT Host ที่รองรับ MCP Apps / Extensions จริง
-7. ทดสอบสร้าง Website project ใน Project Home ที่อนุญาตและอยู่นอก Source Repo
-8. ทดสอบแชทใหม่เริ่มจาก Select Workspace, ยืนยันแล้ว Picker หาย และแสดง Locked + Full Path
-9. ทดสอบว่า Switch, Unbind, Resume ไปอีก Workspace และ New Project หลัง Lock ถูกบล็อกจาก Backend โดยไม่ตัด Worker เดิม
-10. ทดสอบเปิดแชทใหม่เลือก Workspace อื่นได้, กลับแชทเดิมยังคงล็อกเดิม และ Add/Remove Reference ไม่เปลี่ยน Active Workspace
-11. ทดสอบหลัง Lock ไม่มีปุ่มส่ง Prompt สำเร็จรูป, ข้อความ Connected ซ้ำซ้อนหายไป, Reference Workspaces อยู่ก่อน Workspace administration และไม่เกิด Chat Message โดยอัตโนมัติ
-12. ทดสอบ Registry Archive/Restore/Unregister/Relink ด้วยฐานข้อมูลทดสอบเท่านั้น รวมถึงไม่ลบไฟล์จริง
-13. ทดสอบ Policy add/remove กับไฟล์ Base Policy ชั่วคราวเท่านั้น และตรวจ revision conflict, last-root guard, token replay
-14. ยืนยันว่า Path ปรากฏเฉพาะ app-only Snapshot และไม่ปรากฏในผล Tool เปิด Panel ที่ model มองเห็น
+ใช้เมื่อต้องการสาธิต DWB Companion โดยไม่ให้รายการโปรเจกต์งานภายในปรากฏใน **Project Picker / Reference Picker** โดยไม่ต้องเปิด Presentation Mode:
 
-โค้ดนี้ยังเป็น PoC ใน feature branch ไม่ใช่ Public Release. Unit / MCP integration tests ไม่ยืนยันว่า UI ทำงานบน ChatGPT Host จริงแล้ว. ยังต้องทบทวน npm audit High/Critical และ bundled license notices ก่อนออก release
+1. เปิด **Workspace administration → Manage registered projects** (ค่าเริ่มต้นคือ **Visible projects**)
+2. ในโปรเจกต์ที่ไม่ต้องการแสดง เลือก **Hide from picker → Review → Confirm change** แม้โปรเจกต์จะมี Active Binding หรือ Reference อยู่ก็ทำได้
+3. รายการจะหายไปจาก Picker ในแชทใหม่และหลัง Refresh; เปิดตัวกรอง **Hidden projects** ในหน้าบริหารเพื่อดูรายการที่ซ่อน
+4. เลือก **Unhide from picker → Review → Confirm change** เพื่อให้กลับมาแสดง โดยไม่ต้องลงทะเบียนโปรเจกต์ใหม่
+
+สถานะ Hidden เก็บใน SQLite ตาราง `workspace_picker_hidden` ข้ามแชทและการ Restart; ไม่มีการย้าย/ลบ Source Code เปลี่ยน `allowedDirectories` หรือเปลี่ยน Workspace Lock/Bindings/References. โปรเจกต์ที่ถูกซ่อน **ยังเข้าถึงได้ผ่านการระบุ path/workspace ID ในเครื่องมือ MCP ตาม Policy เดิม** และ Active Workspace/Reference ที่เลือกอยู่แล้วในแชทเก่าอาจยังมีชื่อปรากฏ ข้อมูลในแชทเก่าและ System Status ไม่ได้ถูก Mask. จึงควรเปิด **แชทใหม่ที่เลือก Demo Workspace** และตรวจทุกหน้าจอก่อนบันทึกภาพ รวมถึงหลีกเลี่ยงการเปิดตัวกรอง **Hidden projects / All projects** ระหว่างเดโม
+
+Hide เป็นเพียง **การจัดการความสะอาดรายการเลือก (UI visibility)** ไม่ใช่มาตรการรักษาความลับหรือการตัดสิทธิ์ filesystem. ต่างจาก Archive ที่บล็อกโปรเจกต์มี Active Binding/Reference; Unregister ต้อง Archive ก่อนจึงทำได้
+
+## Presentation Mode — โหมดสาธิต
+
+ฟีเจอร์นี้ **ซ่อน Workspace เฉพาะใน DWB Companion UI** เพื่อป้องกันเผลอแสดงชื่อโปรเจกต์งานภายในระหว่างสาธิต; ไม่ลบ/Archive/Unregister Workspace และไม่แก้ `allowedDirectories` หรือสิทธิ์ OS
+
+### วิธีเตรียมและใช้งาน
+
+1. เปิด **DWB Companion** ขณะที่ยังเป็น **Normal Mode** (ค่าเริ่มต้นเมื่อยังไม่เคยเปิด Presentation Mode)
+2. เปิด **Workspace administration → Advanced Settings · Presentation Mode / Demo Allowlist** เลือก Workspace ที่เป็น Demo ผ่าน Checkbox ได้หลายรายการ (ต้องเป็น Workspace ที่ลงทะเบียนอยู่แล้ว)
+3. กด **Save Demo Allowlist** (ค่าบันทึกในฐานข้อมูล SQLite ฝั่ง DWB ไม่ใช่ browser `localStorage`); ต้องมี Workspace อย่างน้อยหนึ่งรายการที่ยังอยู่ภายใต้ `allowedDirectories` และโฟลเดอร์มีอยู่จริง จึงจะเปิดโหมดได้
+4. กด **Enter Presentation Mode**: แถบ **Presentation Mode ON** จะปรากฏ; Project Picker / Search / Reference Picker และรายการที่มองเห็นจะมีเฉพาะ Workspace ใน Allowlist
+5. ตรวจว่า Workspace ที่แสดงถูกต้องและ **Path ถูก Mask** แล้ว ค่อยเริ่มอัดคลิป (ควรสร้างแชทสาธิตใหม่หลังตั้งค่าโหมด)
+6. เสร็จแล้วกด **Exit Presentation Mode** บนแถบด้านบนเพื่อกลับสู่ Normal Mode และเห็น Workspace ที่เคยลงทะเบียนตามเดิมทั้งหมด
+
+หากผู้ใช้ล็อก Active Workspace ที่ **ไม่ได้อยู่ใน Demo Allowlist** ในแชทเดิม ชื่อและ Path ของ Workspace นั้นจะไม่แสดงใน Presentation Mode แต่ **Workspace Lock ยังทำงาน** ไม่สามารถเปลี่ยน Active Workspace ในแชทเดียวกันได้ ให้เปิด **แชทใหม่** เพื่อเลือก Demo Workspace ที่ต้องการ
+
+**Reference Workspaces** เป็นตัวเลือกเสริม (Optional — ไม่จำเป็นต้องเลือก) และมีไว้ให้ ChatGPT อ่านข้อมูลอ้างอิงจากโปรเจกต์อื่น ไม่ได้เปลี่ยน Workspace หลักที่ใช้แก้ไข UI จะแสดงรายการแบบย่อเมื่อไม่มี Reference และมีช่องค้นหาแทน Dropdown ยาว ๆ; แสดงเฉพาะ Demo Allowlist ใน Presentation Mode โดยจำนวนสูงสุด **5** นับตามรายการอ้างอิงจริงใน Session แม้บางรายการถูกซ่อน Read-only semantics และ Lock เดิมยังคงอยู่
+
+### การซ่อนข้อมูลและข้อจำกัดที่ต้องทราบ
+
+- Presentation Mode ซ่อนชื่อ Workspace ที่ไม่อยู่ใน Allowlist ใน UI, Registry, Picker, Reference, Session list และไม่แสดงจำนวน Session รวม; Path ของ Workspace ที่แสดงถูก Mask และส่วน Admin / Allowed Directories / System Status ถูกซ่อนจาก UI
+- การกรองทำฝั่ง DWB ก่อนส่ง Snapshot เข้า MCP App; Model-visible Companion Snapshot ถูกกรองเช่นกัน และ `app.updateModelContext` ในโหมดนี้ส่งเฉพาะ Workspace ID ที่มองเห็น ไม่ส่งชื่อ Workspace หรือ Absolute Path แต่ **Model Context ก่อนเปิดโหมดหรือเนื้อหาในประวัติแชทไม่สามารถย้อนลบได้** จึงควรเริ่ม **แชทใหม่สำหรับ Workshop**
+- โหมดเป็น **การจำกัดการแสดงผล ไม่ใช่ Security Boundary**: เครื่องมือ DWB อื่น, filesystem, สิทธิ์ผู้ใช้และ `allowedDirectories` ยังทำงานตามเดิม; ห้ามใช้ Presentation Mode แทนการตั้งค่า Allowed Directories หรือการลบความลับออกจากเนื้อหาที่จะสาธิต
+- Settings เป็นแบบ **Local DWB / Global ต่อ Registry** ข้าม Refresh, เปิดแชทใหม่ และ Restart (โดยยังใช้ฐานข้อมูลเดิม); Presentation Mode ไม่ปิดเองเมื่อเปลี่ยนแชท ส่วน Panel ที่เปิดค้างอยู่จากก่อนเปลี่ยนโหมดอาจยังมี Snapshot เก่า **ให้ปิดและเปิดทุก Panel ใหม่ก่อนอัดคลิป**
+- เมื่อเปิด Panel ใหม่ ตัว UI จะโหลด Snapshot ล่าสุดก่อนวาดรายชื่อ และซ่อนข้อมูลเก่าระหว่าง Refresh; ไม่แสดง raw exception พร้อม Path ระหว่างอัดคลิป เพื่อช่วยลดการ Flash ข้อมูล
+- ก่อนเริ่มอัดควรตรวจ **หน้าจอจริง** ว่าไม่มีชื่อองค์กร/พาธในแชทเก่า, หน้าต่างอื่น, Terminal, Model replies หรือ App/Tool อื่นที่กำลังเปิด; Presentation Mode ควบคุมเฉพาะ Companion UI และ Context Sync ใหม่
 
 ## อ่านเพิ่มเติม
 

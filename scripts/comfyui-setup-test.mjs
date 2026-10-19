@@ -14,9 +14,14 @@ if (process.platform !== 'win32') {
 const root = fileURLToPath(new URL('../', import.meta.url));
 const scripts = resolve(root, 'skills', 'comfyui-setup', 'scripts');
 const fixtureDir = await mkdtemp(resolve(root, 'logs', 'comfyui-installer-test-'));
+// Do not pass PowerShell 7's module paths to Windows PowerShell 5.1.
+// Match case-insensitively because Windows environment names are case-insensitive.
+const childEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => key.toLowerCase() !== 'psmodulepath'),
+);
 function child(command, args, timeoutMs = 30_000) {
   return new Promise((done, reject) => {
-    const p = spawn(command, args, { cwd: fixtureDir, windowsHide: true, env: process.env });
+    const p = spawn(command, args, { cwd: fixtureDir, windowsHide: true, env: childEnv });
     let out = '',
       err = '';
     let ended = false;

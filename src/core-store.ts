@@ -36,6 +36,8 @@ export class CoreStore {
         demo_workspace_ids TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS workspace_archives (
         workspace_id TEXT PRIMARY KEY, archived_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS workspace_picker_hidden (
+        workspace_id TEXT PRIMARY KEY, hidden_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS companion_policy_events (
         id INTEGER PRIMARY KEY, ts TEXT NOT NULL, session_id TEXT NOT NULL,
         action TEXT NOT NULL, old_revision TEXT NOT NULL, new_revision TEXT NOT NULL);

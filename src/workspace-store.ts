@@ -17,6 +17,7 @@ export type WorkspaceView = {
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
+  hiddenAt: string | null;
 };
 
 function text(value: unknown): string {
@@ -140,6 +141,11 @@ export class WorkspaceStore {
           'SELECT archived_at FROM workspace_archives WHERE workspace_id=?',
           [String(row.id)],
         )?.archived_at ?? null,
+      hiddenAt:
+        this.db.one<{ hidden_at: string }>(
+          'SELECT hidden_at FROM workspace_picker_hidden WHERE workspace_id=?',
+          [String(row.id)],
+        )?.hidden_at ?? null,
     };
   }
 
@@ -235,6 +241,22 @@ export class WorkspaceStore {
       );
   }
 
+  setPickerHidden(workspaceId: string, hidden: boolean, sessionId: string): WorkspaceView {
+    return this.db.transaction(() => {
+      const workspace = this.exact(workspaceId);
+      if (Boolean(workspace.hiddenAt) === hidden)
+        throw new Error(hidden ? 'Workspace is already hidden.' : 'Workspace is already visible.');
+      if (hidden)
+        this.db.run('INSERT INTO workspace_picker_hidden(workspace_id,hidden_at) VALUES(?,?)', [
+          workspace.id,
+          new Date().toISOString(),
+        ]);
+      else this.db.run('DELETE FROM workspace_picker_hidden WHERE workspace_id=?', [workspace.id]);
+      this.event(workspace.id, hidden ? 'picker_hidden' : 'picker_unhidden', sessionId);
+      return this.exact(workspace.id);
+    });
+  }
+
   archive(workspaceId: string, sessionId: string): WorkspaceView {
     return this.db.transaction(() => {
       const workspace = this.exact(workspaceId);
@@ -271,6 +293,7 @@ export class WorkspaceStore {
       });
       this.db.run('DELETE FROM workspace_aliases WHERE workspace_id=?', [workspace.id]);
       this.db.run('DELETE FROM workspace_archives WHERE workspace_id=?', [workspace.id]);
+      this.db.run('DELETE FROM workspace_picker_hidden WHERE workspace_id=?', [workspace.id]);
       this.db.run('DELETE FROM workspaces WHERE id=?', [workspace.id]);
       return { unregistered: workspace.id };
     });

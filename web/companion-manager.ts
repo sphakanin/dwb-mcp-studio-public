@@ -6,6 +6,7 @@ export type ManagedWorkspace = {
   status: 'ready' | 'outside' | 'missing' | 'archived';
   usage: { bindings: number; references: number };
   archivedAt: string | null;
+  hidden: boolean;
 };
 export type ManagerReview = {
   token: string;
@@ -49,7 +50,7 @@ export function createWorkspaceManager(
 ) {
   let data: ManagerData | null = null;
   let selectedId: string | null = null;
-  let filter = 'attention';
+  let filter = 'visible';
   let review: ManagerReview | null = null;
 
   function updateCurrent() {
@@ -91,6 +92,7 @@ export function createWorkspaceManager(
     const candidates = data.workspaces.filter(
       (w) =>
         w.status === 'ready' &&
+        !w.hidden &&
         w.id !== data?.currentWorkspace?.id &&
         (w.name.toLowerCase().includes(query) || w.path.toLowerCase().includes(query)),
     );
@@ -122,13 +124,14 @@ export function createWorkspaceManager(
     const container = byId('registry-list');
     container.replaceChildren();
     if (!data) return;
-    const ws = data.workspaces.filter((w) =>
-      filter === 'all'
-        ? true
-        : filter === 'attention'
-          ? w.status === 'outside' || w.status === 'missing'
-          : w.status === filter,
-    );
+    const ws = data.workspaces.filter((w) => {
+      if (filter === 'all') return true;
+      if (filter === 'hidden') return w.hidden;
+      if (w.hidden) return false;
+      if (filter === 'visible') return w.status !== 'archived';
+      if (filter === 'attention') return w.status === 'outside' || w.status === 'missing';
+      return w.status === filter;
+    });
     byId('registry-count').textContent = String(ws.length) + ' projects';
     for (const w of ws) {
       const row = document.createElement('div');
@@ -141,7 +144,7 @@ export function createWorkspaceManager(
         missing: 'Folder missing',
         archived: 'Archived',
       };
-      const state = label(statusNames[w.status], 'status-tag');
+      const state = label((w.hidden ? 'Hidden · ' : '') + statusNames[w.status], 'status-tag');
       state.dataset.status = w.status;
       head.append(label(w.name, 'choice-name'), state);
       row.append(head, label(w.path, 'choice-path'));
@@ -152,11 +155,13 @@ export function createWorkspaceManager(
       const actions =
         w.status === 'archived'
           ? [
+              ...(w.hidden ? [['unhide', 'Unhide from picker']] : []),
               ['restore', 'Restore'],
               ['unregister', 'Unregister (registry only)'],
               ['relink', 'Relink'],
             ]
           : [
+              [w.hidden ? 'unhide' : 'hide', w.hidden ? 'Unhide from picker' : 'Hide from picker'],
               ['archive', 'Archive'],
               ['relink', 'Relink'],
             ];
@@ -173,13 +178,15 @@ export function createWorkspaceManager(
       const used = Boolean(w.usage.bindings || w.usage.references);
       select.addEventListener('change', () => {
         newPath.classList.toggle('hidden', select.value !== 'relink');
-        reviewButton.disabled = isBusy() || (used && select.value !== 'restore');
+        reviewButton.disabled =
+          isBusy() || (used && !['restore', 'hide', 'unhide'].includes(select.value));
       });
       const reviewButton = document.createElement('button');
       reviewButton.className = 'subtle';
       reviewButton.type = 'button';
       reviewButton.textContent = 'Review';
-      reviewButton.disabled = isBusy() || (used && select.value !== 'restore');
+      reviewButton.disabled =
+        isBusy() || (used && !['restore', 'hide', 'unhide'].includes(select.value));
       reviewButton.addEventListener(
         'click',
         () =>
@@ -199,7 +206,7 @@ export function createWorkspaceManager(
               w.usage.bindings +
               ' bindings, ' +
               w.usage.references +
-              ' references. Unbind and remove references before managing.',
+              ' references. Hide/Unhide is allowed; other changes require an unused workspace.',
             'meta',
           ),
         );

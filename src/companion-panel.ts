@@ -49,7 +49,16 @@ export const companionTools = [
         path: { type: 'string' },
         operation: {
           type: 'string',
-          enum: ['archive', 'restore', 'unregister', 'relink', 'root_add', 'root_remove'],
+          enum: [
+            'archive',
+            'restore',
+            'unregister',
+            'relink',
+            'hide',
+            'unhide',
+            'root_add',
+            'root_remove',
+          ],
         },
         review_token: { type: 'string' },
         demo_workspace_ids: { type: 'array', items: { type: 'string' }, maxItems: 100 },
@@ -70,7 +79,13 @@ export const companionTools = [
   },
 ] as const;
 
-type Workspace = { id: string; name: string; root?: string; aliases?: string[] };
+type Workspace = {
+  id: string;
+  name: string;
+  root?: string;
+  aliases?: string[];
+  hiddenAt?: string | null;
+};
 type Skill = { id: string; name: string; policy: string };
 type Session = {
   sessionId?: string;
@@ -99,7 +114,9 @@ export function makeCompanionSnapshot(input: {
   const runtime = broker.runtime as { version?: string } | undefined;
   const presentation = input.presentation ?? { enabled: false, demoWorkspaceIds: [] };
   const visible = new Set(presentation.demoWorkspaceIds);
-  const canShow = (id: string) => !presentation.enabled || visible.has(id);
+  const pickerEligible = new Set(input.workspaces.filter((w) => !w.hiddenAt).map((w) => w.id));
+  const canShow = (id: string) =>
+    !presentation.enabled || (visible.has(id) && pickerEligible.has(id));
   const current = input.current && canShow(input.current.id) ? input.current : null;
   return {
     kind: 'dwb-companion-v1',
@@ -130,7 +147,7 @@ export function makeCompanionSnapshot(input: {
         name: w.name,
       })),
     workspaces: input.workspaces
-      .filter((w) => canShow(w.id))
+      .filter((w) => canShow(w.id) && !w.hiddenAt)
       .slice(0, 50)
       .map((w) => ({
         available:

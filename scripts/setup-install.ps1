@@ -47,6 +47,7 @@ try {
   }
   if ($rebuild) {
     Set-Phase 'building'
+    Invoke-DwbNode $machine.Node @((Join-Path $PSScriptRoot 'build-companion.mjs')) $ProjectRoot | Write-Output
     Invoke-DwbNode $machine.Node @((Join-Path $ProjectRoot 'node_modules\typescript\bin\tsc'), '-p', (Join-Path $ProjectRoot 'tsconfig.json')) $ProjectRoot | Write-Output
   }
   Set-Phase 'runtime'

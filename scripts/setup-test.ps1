@@ -16,9 +16,9 @@ Assert (-not (Get-DwbWorkerState 'missing.js').Ready) 'Missing worker must fail.
 foreach ($directory in @($InstallRoot, (Join-Path $WorkerRoot 'dist'), $Workspace)) { $null = New-Item -ItemType Directory -Path $directory -Force }
 $firstSource=if($PreviousSource){[IO.Path]::GetFullPath($PreviousSource)}else{$ProjectRoot}
 $firstBuilt=Test-Path -LiteralPath (Join-Path $firstSource 'dist\index.js')
-$firstFolders=@('scripts','assets','docs')+$(if($firstBuilt){@('dist')}else{@('src')})
+$firstFolders=@('scripts','assets','docs')+$(if($firstBuilt){@('dist')}else{@('src','web')})
 foreach ($directory in $firstFolders) { Copy-Item -LiteralPath (Join-Path $firstSource $directory) -Destination $InstallRoot -Recurse }
-if(-not $firstBuilt){Copy-Item -LiteralPath (Join-Path $firstSource 'tsconfig.json') -Destination $InstallRoot}
+if(-not $firstBuilt){foreach($file in @('tsconfig.json','tsconfig.companion.json')){Copy-Item -LiteralPath (Join-Path $firstSource $file) -Destination $InstallRoot}}
 foreach ($file in @('package.json','package-lock.json')) { Copy-Item -LiteralPath (Join-Path $firstSource $file) -Destination $InstallRoot }
 $tunnelRoot=Join-Path $InstallRoot 'external\tunnel-client'
 $null=New-Item -ItemType Directory -Path $tunnelRoot -Force
@@ -44,6 +44,11 @@ try {
   [IO.File]::WriteAllText($requestFile, ($request | ConvertTo-Json), $Utf8)
   & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File (Join-Path $InstallRoot 'scripts\setup.ps1') -TestRequestFile $requestFile -PreviewPath (Join-Path $TestRoot 'setup-success.png')
   Assert ($LASTEXITCODE -eq 0) 'GUI installation failed.'
+  if(Test-Path -LiteralPath (Join-Path $firstSource 'assets\licenses\companion-THIRD-PARTY-NOTICES.txt')){
+    $panel=Join-Path $InstallRoot 'dist\companion-panel.html'
+    Assert (Test-Path -LiteralPath $panel) 'Setup must build the Companion HTML from source.'
+    Assert (([IO.File]::ReadAllText($panel)).Contains('dwb-third-party-notices')) 'Installed Companion must retain bundled notices.'
+  }
   $saved = Get-Content -LiteralPath $env:DWB_CONFIG_FILE -Raw -Encoding UTF8 | ConvertFrom-Json
   Assert ($saved.workerEntry -eq $request.workerEntry) 'Wrong worker saved.'
   Assert ($saved.workspace -eq $Workspace) 'Wrong workspace saved.'
@@ -55,9 +60,9 @@ try {
   $nextRoot=Join-Path $TestRoot 'next release'
   $null=New-Item -ItemType Directory -Path $nextRoot
   $nextBuilt=Test-Path -LiteralPath (Join-Path $ProjectRoot 'dist\index.js')
-  $nextFolders=@('scripts','assets','docs')+$(if($nextBuilt){@('dist')}else{@('src')})
+  $nextFolders=@('scripts','assets','docs')+$(if($nextBuilt){@('dist')}else{@('src','web')})
   foreach ($directory in $nextFolders) { Copy-Item -LiteralPath (Join-Path $ProjectRoot $directory) -Destination $nextRoot -Recurse }
-  if(-not $nextBuilt){Copy-Item -LiteralPath (Join-Path $ProjectRoot 'tsconfig.json') -Destination $nextRoot}
+  if(-not $nextBuilt){foreach($file in @('tsconfig.json','tsconfig.companion.json')){Copy-Item -LiteralPath (Join-Path $ProjectRoot $file) -Destination $nextRoot}}
   foreach ($file in @('package.json','package-lock.json')) { Copy-Item -LiteralPath (Join-Path $ProjectRoot $file) -Destination $nextRoot }
   $sentinel=Join-Path $InstallRoot 'node_modules\dwb-reuse-proof.txt'
   [IO.File]::WriteAllText($sentinel,'must survive migration without npm ci',$Utf8)
@@ -80,6 +85,7 @@ try {
   foreach ($file in @($keyFile,$settingsFile,$workspaceDb,$customPolicy,$preferencesFile)) { $preserved[$file]=(Get-FileHash -LiteralPath $file).Hash }
   & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File (Join-Path $nextRoot 'scripts\setup.ps1') -TestRequestFile $requestFile -PreviewPath (Join-Path $TestRoot 'upgrade-success.png')
   Assert ($LASTEXITCODE -eq 0) 'Upgrade GUI failed.'
+  Assert (([IO.File]::ReadAllText((Join-Path $nextRoot 'dist\companion-panel.html'))).Contains('dwb-third-party-notices')) 'Upgraded Companion must retain bundled notices.'
   foreach ($file in $preserved.Keys) { Assert ((Get-FileHash -LiteralPath $file).Hash -eq $preserved[$file]) 'Saved user data changed during upgrade.' }
   $upgraded=Get-Content -LiteralPath $env:DWB_CONFIG_FILE -Raw -Encoding UTF8 | ConvertFrom-Json
   Assert ($upgraded.workerEntry.StartsWith($nextRoot)) 'Worker path was not migrated.'

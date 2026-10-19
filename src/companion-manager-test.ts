@@ -44,11 +44,32 @@ try {
     assert.equal(store.setPresentationEnabled(false).enabled, false);
     assert.deepEqual(store.configurePresentation([]).demoWorkspaceIds, []);
     store.bindKnown('chat-active', entry);
+    assert.equal(store.exact(entry.id).hiddenAt, null);
+    const policyBeforeHide = await readFile(policyFile, 'utf8');
+    const bindingBeforeHide = db.query('SELECT * FROM session_workspace_bindings');
+    const hidden = store.setPickerHidden(entry.id, true, 'admin');
+    assert.ok(hidden.hiddenAt, 'An in-use workspace can be hidden from pickers');
+    assert.equal(store.current('chat-active')?.id, entry.id, 'Hidden does not unbind active chats');
+    assert.deepEqual(db.query('SELECT * FROM session_workspace_bindings'), bindingBeforeHide);
+    assert.throws(() => store.setPickerHidden(entry.id, true, 'admin'), /already hidden/);
+    const hiddenReopened = new CoreStore(join(tmp, 'workspaces.db'));
+    try {
+      assert.ok(new WorkspaceStore(hiddenReopened).exact(entry.id).hiddenAt);
+    } finally {
+      hiddenReopened.close();
+    }
+    assert.equal(store.setPickerHidden(entry.id, false, 'admin').hiddenAt, null);
+    assert.throws(() => store.setPickerHidden(entry.id, false, 'admin'), /already visible/);
+    assert.equal(await readFile(policyFile, 'utf8'), policyBeforeHide);
+    assert.equal((await stat(join(project, 'KEEP.txt'))).isFile(), true);
     assert.throws(() => store.archive(entry.id, 'admin'), /still bound/);
     assert.throws(() => store.unbind('chat-active'), /DWB_WORKSPACE_LOCKED/);
     // Simulate broker retention cleanup, never an in-chat Unbind operation.
     db.run('DELETE FROM session_workspace_bindings WHERE session_id=?', ['chat-active']);
     store.addRelated('chat-other', entry.id);
+    store.setPickerHidden(entry.id, true, 'admin');
+    assert.equal(store.related('chat-other')[0].id, entry.id, 'Hidden does not drop references');
+    assert.equal(store.setPickerHidden(entry.id, false, 'admin').hiddenAt, null);
     assert.throws(() => store.archive(entry.id, 'admin'), /still bound/);
     store.removeRelated('chat-other', entry.id);
     assert.equal(store.archive(entry.id, 'admin').archivedAt !== null, true);
@@ -87,7 +108,13 @@ try {
       true,
       'Mode does not block direct Registry semantics',
     );
+    store.setPickerHidden(entry.id, true, 'admin');
     assert.equal(store.unregister(entry.id, 'admin').unregistered, entry.id);
+    assert.deepEqual(
+      db.query('SELECT * FROM workspace_picker_hidden WHERE workspace_id=?', [entry.id]),
+      [],
+      'Unregister also drops picker-visibility state',
+    );
     assert.throws(() => store.exact(entry.id), /Unknown workspace ID/);
     assert.equal(
       store.presentationSettings().enabled,
@@ -106,7 +133,14 @@ try {
     );
     assert.equal((await stat(join(project, 'KEEP.txt'))).isFile(), true);
     const events = db.query<{ type: string }>('SELECT type FROM workspace_events ORDER BY id');
-    for (const event of ['archived', 'restored', 'relinked', 'unregistered'])
+    for (const event of [
+      'archived',
+      'restored',
+      'relinked',
+      'unregistered',
+      'picker_hidden',
+      'picker_unhidden',
+    ])
       assert.ok(
         events.some((row) => row.type === event),
         event,
@@ -146,5 +180,5 @@ try {
   await rm(tmp, { recursive: true, force: true });
 }
 console.log(
-  'COMPANION_MANAGER_TEST_PASS: archive, restore, unregister, relink, blocked references, root review and revision',
+  'COMPANION_MANAGER_TEST_PASS: hide/unhide with active binding/reference, archive, restore, unregister, relink and policy review',
 );

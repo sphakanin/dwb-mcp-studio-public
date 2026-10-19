@@ -1,10 +1,12 @@
 # DWB MCP Studio Core
 
-Windows Beta · 0.1.0-beta.15
+Windows Beta · 0.1.0-beta.16
 
-สำหรับ **Ubuntu / remote VPS**: เพิ่มตัวติดตั้งผ่าน terminal พร้อม Bash, OpenAI Tunnel และ user systemd service แล้ว ดู [คู่มือติดตั้ง Ubuntu](docs/UBUNTU-TH.md) ใช้ `bash install.sh --workspace /absolute/folder` หลังติดตั้ง Node.js 22.16+, curl และ unzip รุ่น Ubuntu นี้ยังเป็น candidate ระหว่างตรวจแพลตฟอร์มก่อนแจก
+Source ปัจจุบันเป็น beta.16 ส่วนลิงก์ดาวน์โหลดด้านล่างเป็น beta.15
 
-สำหรับ macOS: เพิ่ม [แอป Setup/Dashboard, Tunnel, Keychain และ menu bar](docs/MACOS-PREVIEW-TH.md) ใน source แล้ว รุ่นนี้ยังต้องทดสอบบน Mac จริงก่อนแจกทั่วไป ดู [ผลการตรวจ Windows และรายการตรวจ Mac](docs/MACOS-PREVIEW-VALIDATION.md)
+สำหรับ **Ubuntu / remote VPS**: ใช้ตัวติดตั้งผ่าน terminal พร้อม Bash, OpenAI Tunnel และ user systemd service ดู [คู่มือติดตั้ง Ubuntu](docs/UBUNTU-TH.md) ใช้ `bash install.sh --workspace /absolute/folder` หลังติดตั้ง Node.js 22.16+, curl และ unzip
+
+สำหรับ **macOS 13 ขึ้นไป**: เปิด `Install DWB MCP Studio.command` เพื่อสร้างแอป Setup/Dashboard พร้อม Tunnel, Keychain และ menu bar รองรับ Apple Silicon และ Intel โดยต้องมี Node.js 22.16+ และ Apple Command Line Tools ดู [คู่มือติดตั้ง macOS](docs/MACOS-PREVIEW-TH.md)
 
 ## ดาวน์โหลดและเริ่มใช้
 
@@ -26,15 +28,15 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 
 ใช้ Setup เตรียมเครื่องและการเชื่อมต่อ ตั้งชื่อ workspace เพื่อเรียกใช้ในแชทถัดไป และดูสถานะ worker กับงานที่กำลังทำผ่าน Dashboard
 
-### DWB Companion Panel (ทดลองใน feature branch)
+### DWB Companion Panel (Experimental)
 
-กำลังพัฒนา **DWB Project Launcher** ผ่าน ChatGPT Conversation Panel (MCP Apps + MCP Extensions, `thread` entrypoint) ให้เลือกและสลับ Workspace, สร้างโปรเจกต์จาก Starter Templates ภายในโฟลเดอร์ที่อนุญาต, เพิ่ม Existing Project และเลือก Related Workspaces เป็น read-only references พร้อมส่ง Context ให้ ChatGPT โดยไม่ต้องพิมพ์ Path ซ้ำ ดู [คู่มือและรายการตรวจสอบ](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้ยัง **ไม่ได้รวมใน release beta.15** และต้องผ่าน E2E บน ChatGPT Host จริงก่อนแจก
+**DWB Project Launcher** ผ่าน ChatGPT Conversation Panel (MCP Apps + MCP Extensions, `thread` entrypoint) ให้เลือกและล็อก Workspace ต่อแชท, สร้างโปรเจกต์จาก Starter Templates ภายในโฟลเดอร์ที่อนุญาต, เพิ่ม Existing Project และเลือก Related Workspaces เป็น read-only references พร้อมส่ง Context ให้ ChatGPT โดยไม่ต้องพิมพ์ Path ซ้ำ ดู [คู่มือการใช้งาน](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้อยู่ใน source beta.16 และ **ไม่ได้รวมใน release beta.15**
 
 ### ComfyUI Setup Assistant (Local Agent Skill — ทดลอง)
 
-เพิ่ม Skill สำหรับให้ ChatGPT ใช้ DWB MCP Studio ตรวจ Environment และช่วยผู้เรียนติดตั้ง ComfyUI อย่างปลอดภัยใน Windows/NVIDIA โดยคอร์สสาธิตเลือก **Windows Portable แบบแยก Embedded Python/PyTorch, Models, Custom Nodes และ Cache** ภายในโฟลเดอร์ใหม่ ใช้ Read-only Preflight → Plan → Approval → Apply → Inspect → (Separate Launch Approval) ตามลำดับ และใช้ Port 8189 สำหรับ Instance ใหม่เมื่อ Instance เดิมหยุดทำงานแล้ว ไม่ใช้ Manual Git + uv ไม่เปลี่ยน Python, CUDA, Driver หรือ ComfyUI ที่ใช้งานอยู่ และไม่ดาวน์โหลดโมเดลอัตโนมัติ
+Skill สำหรับให้ ChatGPT ใช้ DWB MCP Studio ตรวจ Environment และช่วยผู้ใช้ติดตั้ง ComfyUI ใน Windows/NVIDIA แบบ **Windows Portable ที่แยก Embedded Python/PyTorch, Models, Custom Nodes และ Cache** ภายในโฟลเดอร์ใหม่ ใช้ Read-only Preflight → Plan → Approval → Apply → Inspect → (Separate Launch Approval) ตามลำดับ และใช้ Port 8189 สำหรับ Instance ใหม่เมื่อ Instance เดิมหยุดทำงานแล้ว ไม่ใช้ Manual Git + uv ไม่เปลี่ยน Python, CUDA, Driver หรือ ComfyUI ที่ใช้งานอยู่ และไม่ดาวน์โหลดโมเดลอัตโนมัติ
 
-ไฟล์และคู่มือ: [skills/comfyui-setup/README-TH.md](skills/comfyui-setup/README-TH.md) — ยังเป็น local experiment บน feature branch ไม่ได้รวมใน Public beta release ผู้ใช้ต้องติดตั้ง Local Skill ด้วยตัวเองผ่านหน้า DWB Agent Skills และเลือก Policy ASK/MANUAL
+ไฟล์และคู่มือ: [skills/comfyui-setup/README-TH.md](skills/comfyui-setup/README-TH.md) — ผู้ใช้ติดตั้ง Local Skill ด้วยตัวเองผ่านหน้า DWB Agent Skills และเลือก Policy ASK/MANUAL
 
 ### Agent Skills ใน beta.15
 
@@ -259,6 +261,12 @@ npm run release
 `npm test` ใช้ test double ที่ DWB เขียนเอง ไม่ดาวน์โหลด Desktop Commander การทดสอบ integration ใช้ตัวจริงภายนอกและตรวจว่า config.js ไม่ถูกแก้ไข
 
 `npm run release` สร้าง ZIP และ SHA-256 ใน `releases/` จากรายการไฟล์ที่กำหนดเท่านั้น ไม่มี `node_modules`, ข้อมูล runtime, log, config ผู้ใช้ หรือโปรแกรมภายนอก ตัว ZIP มี source ของ DWB และ JavaScript ที่ build แล้ว ส่วน npm libraries ให้ผู้ใช้ดาวน์โหลดตอน Setup
+
+## Known risk และสถานะ dependency
+
+ตรวจเมื่อ 19 ตุลาคม 2026: `npm audit --omit=dev` ของ repository นี้รายงาน **0 รายการ** โดย source ปัจจุบันใช้ MCP SDK `1.32.1` และ MCP server/client `2.3.1` ผลนี้ครอบคลุม npm runtime dependencies ของ DWB Core เท่านั้น ไม่รวม Desktop Commander `0.2.50` และ tunnel-client `0.0.11` ที่ Setup ดาวน์โหลดแยก ผู้เผยแพร่ต้องตรวจส่วนประกอบภายนอกและรัน audit ซ้ำก่อนออก release
+
+รุ่น beta.16 ยังเป็น release candidate; ผล automated tests บน Windows ไม่แทนการทดสอบบน macOS/Ubuntu จริงหรือ ChatGPT Host ทุกเวอร์ชัน ดู [ผลการตรวจและข้อจำกัด](docs/VALIDATION.md), [รายการตรวจ Mac](docs/MACOS-PREVIEW-VALIDATION.md) และ [ขอบเขต third-party](THIRD-PARTY.md)
 
 ## อัปเดตจากรุ่นเดิม
 

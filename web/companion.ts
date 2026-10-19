@@ -12,7 +12,14 @@ import {
   type ManagerReview,
 } from './companion-manager.js';
 
-type Workspace = { id: string; name: string; available?: boolean; status?: string; path?: string };
+type Workspace = {
+  id: string;
+  name: string;
+  available?: boolean;
+  status?: string;
+  path?: string;
+  hidden?: boolean;
+};
 type Skill = { id: string; name: string; policy: string };
 type Session = {
   state: string;
@@ -154,7 +161,7 @@ function renderDemoSettings(s: Snapshot) {
   if (demoDraft === null) demoDraft = new Set(settings.demoWorkspaceIds);
   const root = get('demo-allowlist');
   root.replaceChildren();
-  for (const workspace of s.workspaces) {
+  for (const workspace of s.workspaces.filter((w) => !w.hidden)) {
     const row = document.createElement('label');
     row.className = 'demo-option';
     const check = document.createElement('input');
@@ -174,7 +181,9 @@ function renderDemoSettings(s: Snapshot) {
   const saved = [...settings.demoWorkspaceIds].sort().join('|');
   const draft = [...demoDraft].sort().join('|');
   const changed = saved !== draft;
-  const accessible = s.workspaces.some((w) => demoDraft?.has(w.id) && w.status === 'ready');
+  const accessible = s.workspaces.some(
+    (w) => demoDraft?.has(w.id) && w.status === 'ready' && !w.hidden,
+  );
   setText(
     'demo-selection-status',
     demoDraft.size +
@@ -207,6 +216,7 @@ function renderReferencePicker(s: Snapshot) {
       w.status !== 'archived' &&
       w.status !== 'missing' &&
       w.status !== 'outside' &&
+      !w.hidden &&
       !already.has(w.id),
   );
   if (selectedReferenceId && !choices.some((w) => w.id === selectedReferenceId))
