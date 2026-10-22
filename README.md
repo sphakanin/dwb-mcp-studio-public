@@ -6,7 +6,7 @@ Source ปัจจุบันเป็น beta.16 ส่วนลิงก์�
 
 สำหรับ **Ubuntu / remote VPS**: ใช้ตัวติดตั้งผ่าน terminal พร้อม Bash, OpenAI Tunnel และ user systemd service ดู [คู่มือติดตั้ง Ubuntu](docs/UBUNTU-TH.md) ใช้ `bash install.sh --workspace /absolute/folder` หลังติดตั้ง Node.js 22.16+, curl และ unzip
 
-สำหรับ **macOS 13 ขึ้นไป**: เปิด `Install DWB MCP Studio.command` เพื่อสร้างแอป Setup/Dashboard พร้อม Tunnel, Keychain และ menu bar รองรับ Apple Silicon และ Intel โดยต้องมี Node.js 22.16+ และ Apple Command Line Tools ดู [คู่มือติดตั้ง macOS](docs/MACOS-PREVIEW-TH.md)
+สำหรับ **macOS 13 ขึ้นไป**: ใช้ไฟล์ `macos-arm64.dmg` บน Apple Silicon เปิดแล้วลาก **DWB MCP Studio** ไปที่ **Applications** ตัวแอปรวม Node และโค้ดที่ build แล้ว ส่วน source ZIP รองรับการ build บน Apple Silicon และ Intel โดยต้องมี Node.js 22.16+ และ Apple Command Line Tools ดู [คู่มือติดตั้ง macOS](docs/MACOS-PREVIEW-TH.md)
 
 ## ดาวน์โหลดและเริ่มใช้
 

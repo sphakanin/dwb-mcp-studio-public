@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
@@ -22,6 +23,8 @@ export class MacController {
   constructor(root, data, helper) {
     this.root = root;
     this.data = data;
+    this.packaged = existsSync(resolve(root, 'packaged-runtime.json'));
+    this.installRoot = this.packaged ? data : root;
     this.helper = helper;
     this.configFile = resolve(data, 'config.json');
     this.tunnelDirectory = resolve(data, 'tunnel-macos');
@@ -183,7 +186,7 @@ export class MacController {
         const cap = Number(workerCap);
         if (!Number.isInteger(cap) || cap < 1 || cap > 64)
           throw new Error('Worker count must be 1–64.');
-        const external = resolve(this.root, 'external');
+        const external = resolve(this.installRoot, 'external');
         await assertOwned(external, external);
         await mkdir(external, { recursive: true, mode: 0o700 });
         installLease = new DatabaseSync(resolve(external, 'mac-install-lease.sqlite'));
@@ -192,30 +195,32 @@ export class MacController {
         } catch {
           throw new Error('Another installer is using this source folder.');
         }
-        this.progress = 'Installing core dependencies…';
-        try {
-          await access(resolve(this.root, 'node_modules/typescript/bin/tsc'));
-        } catch {
-          await run('npm', ['ci', '--no-audit', '--no-fund'], {
+        if (!this.packaged) {
+          this.progress = 'Installing core dependencies…';
+          try {
+            await access(resolve(this.root, 'node_modules/typescript/bin/tsc'));
+          } catch {
+            await run('npm', ['ci', '--no-audit', '--no-fund'], {
+              cwd: this.root,
+              env: this.env,
+              timeout: 600000,
+            });
+          }
+          this.progress = 'Building core…';
+          await run(process.execPath, [resolve(this.root, 'scripts/build-companion.mjs')], {
             cwd: this.root,
             env: this.env,
-            timeout: 600000,
           });
+          await run(
+            process.execPath,
+            [resolve(this.root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'],
+            { cwd: this.root, env: this.env },
+          );
         }
-        this.progress = 'Building core…';
-        await run(process.execPath, [resolve(this.root, 'scripts/build-companion.mjs')], {
-          cwd: this.root,
-          env: this.env,
-        });
-        await run(
-          process.execPath,
-          [resolve(this.root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'],
-          { cwd: this.root, env: this.env },
-        );
         this.progress = 'Installing Desktop Commander…';
-        const workerEntry = await installWorker(this.root);
+        const workerEntry = await installWorker(this.installRoot);
         this.progress = 'Installing verified tunnel-client…';
-        await installTunnel(this.root);
+        await installTunnel(this.installRoot);
         const previous = await json(this.configFile, {});
         const policyPath = previous.basePolicy || resolve(this.data, 'base-policy.json');
         const oldPolicy = await json(policyPath, null);
@@ -277,7 +282,7 @@ export class MacController {
         throw new Error('Invalid key settings.');
       const config = await json(this.configFile, {});
       const expectedWorker = resolve(
-        this.root,
+        this.installRoot,
         'external/macos-preview/desktop-commander/node_modules/@wonderwhy-er/desktop-commander/dist/index.js',
       );
       if (config.workerEntry !== expectedWorker)
@@ -292,8 +297,11 @@ export class MacController {
       if (!key) key = (await this.credential('get')).secret || '';
       if (!key || /[\r\n\0]/.test(key) || key.length > 8192)
         throw new Error('Enter a valid API key.');
-      const executable = resolve(this.root, 'external/macos-preview/tunnel-client/tunnel-client');
-      await assertOwned(resolve(this.root, 'external'), executable);
+      const executable = resolve(
+        this.installRoot,
+        'external/macos-preview/tunnel-client/tunnel-client',
+      );
+      await assertOwned(resolve(this.installRoot, 'external'), executable);
       if (
         !/^0\.0\.11(?:\+|\s|$)/.test(
           (await run(executable, ['--version'], { timeout: 5000 })).trim(),

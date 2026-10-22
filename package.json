@@ -95,6 +95,7 @@
     "test:platform": "node scripts/macos/control-test.mjs && node scripts/macos/lease-test.mjs && tsx src/platform-test.ts",
     "test:mac": "node scripts/macos/core-test.mjs",
     "release:mac": "node scripts/macos/release.mjs",
+    "release:mac:installer": "node scripts/macos/package-app.mjs",
     "setup:linux": "node scripts/linux/cli.mjs setup",
     "test:linux": "node scripts/linux/control-test.mjs",
     "release:linux": "node scripts/linux/release.mjs",

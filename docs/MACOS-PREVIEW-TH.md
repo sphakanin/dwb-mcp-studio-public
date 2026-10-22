@@ -4,7 +4,21 @@
 สถานะยังเป็น **candidate ที่ต้องทดสอบบน Mac จริง** ไม่ใช่รุ่น macOS ที่ผ่านการรับรองพร้อมแจกทั่วไป
 ดูผลที่ตรวจแล้วใน [บันทึกการทดสอบ](MACOS-PREVIEW-VALIDATION.md)
 
-## เตรียมเครื่อง
+## ติดตั้งจาก DMG
+
+สำหรับ Apple Silicon ใช้ไฟล์ `dwb-mcp-studio-<version>-macos-arm64.dmg`:
+
+1. เปิด DMG แล้วลาก **DWB MCP Studio** เข้า **Applications** จากนั้น eject DMG
+2. เปิดแอปจาก Applications เลือกโฟลเดอร์งานและจำนวน worker แล้วกด **ติดตั้งและบันทึก**
+3. กรอก Tunnel ID และ API key แล้วกด **Start MCP**
+
+แอปรวม Node.js และโค้ดที่ build แล้ว ผู้ใช้ไม่ต้องติดตั้ง Node หรือ Apple Command Line Tools
+ต้องเชื่อมต่ออินเทอร์เน็ตระหว่าง Setup เพื่อดาวน์โหลด Desktop Commander และ tunnel-client
+ส่วนประกอบที่ดาวน์โหลดจะอยู่ใน `external/macos-preview` ภายใน data directory ของผู้ใช้ ไม่เขียนลงแอป
+แพ็กใช้ลายเซ็น ad-hoc และยังไม่ได้ notarize; หาก macOS บล็อก ให้ตรวจสอบแหล่งดาวน์โหลดก่อนอนุญาตผ่าน Privacy & Security
+ยังไม่มีตัวติดตั้ง Intel ที่ยืนยันจากการ build ครั้งนี้
+
+## ติดตั้งจาก source ZIP
 
 - macOS 13 ขึ้นไป บน Apple Silicon หรือ Intel
 - Node.js 22.16 ขึ้นไปพร้อม npm
@@ -56,6 +70,10 @@ API key อยู่ใน Keychain ไม่อยู่ใน config, command-
 Setup จะเตรียมส่วนประกอบของโฟลเดอร์ใหม่และปรับ path ให้ รวมถึง path เปิดพร้อมเข้าสู่ระบบ
 
 ## ทดสอบบนเครื่อง Mac ที่ยืมมา
+
+ผู้ดูแล release สร้าง DMG บน Mac ได้ด้วย `npm run release:mac:installer`
+สคริปต์ใช้เฉพาะไฟล์ตาม distribution manifest, ตรวจ checksum ของ Node และติดตั้ง dependencies ใหม่ในโฟลเดอร์ build แยก
+ไฟล์ DMG และ SHA-256 อยู่ใน `releases/` ไม่รวมข้อมูลผู้ใช้หรือประวัติ Git
 
 ใช้ workspace ทดลองที่เจ้าของเครื่องอนุญาต เช่น:
 

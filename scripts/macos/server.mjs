@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
@@ -117,7 +118,9 @@ async function main() {
     lease.close();
     throw new Error('DWB is already open for this data directory. Use its menu bar icon.');
   }
-  const helper = resolve(root, 'DWB MCP Studio.app/Contents/MacOS/DWBStudio');
+  const helper = existsSync(resolve(root, 'packaged-runtime.json'))
+    ? resolve(root, '../../MacOS/DWBStudio')
+    : resolve(root, 'DWB MCP Studio.app/Contents/MacOS/DWBStudio');
   const controller = new MacController(root, data, helper);
   const token = randomBytes(32).toString('base64url');
   let stopping = false;

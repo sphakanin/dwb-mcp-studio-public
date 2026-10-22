@@ -92,14 +92,17 @@ final class StudioApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     }
     func startService() {
         do {
-            let root = Bundle.main.bundleURL.deletingLastPathComponent()
             guard let runtimeURL = Bundle.main.url(forResource: "runtime", withExtension: "json"),
                   let runtime = try JSONSerialization.jsonObject(with: Data(contentsOf: runtimeURL)) as? [String: String],
-                  let node = runtime["node"] else { throw NSError(domain: "DWB", code: 4) }
+                  let nodePath = runtime["node"], let resources = Bundle.main.resourceURL else { throw NSError(domain: "DWB", code: 4) }
+            let node = nodePath.hasPrefix("/") ? nodePath : resources.appendingPathComponent(nodePath).path
+            let root = runtime["root"].map { resources.appendingPathComponent($0) } ?? Bundle.main.bundleURL.deletingLastPathComponent()
             let child = Process(); child.executableURL = URL(fileURLWithPath: node)
             child.arguments = [root.appendingPathComponent("scripts/macos/server.mjs").path]
             child.currentDirectoryURL = root
             var environment = ProcessInfo.processInfo.environment
+            environment.removeValue(forKey: "NODE_OPTIONS")
+            environment.removeValue(forKey: "NODE_PATH")
             environment["PATH"] = URL(fileURLWithPath: node).deletingLastPathComponent().path + ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
             child.environment = environment
             let input = Pipe(), output = Pipe(), errors = Pipe()
@@ -126,7 +129,7 @@ final class StudioApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
                 self.alert("The local control service stopped. If another DWB window is already open, use its menu bar icon. Otherwise reopen this app or rerun Install DWB MCP Studio.command.")
             } }
             try child.run(); service = child
-        } catch { alert("Cannot start Node.js. Run Install DWB MCP Studio.command again to rebuild the app for this machine.") }
+        } catch { alert("Cannot start the local service. Reinstall DWB MCP Studio or rebuild the source app.") }
     }
     func alert(_ text: String) { let box = NSAlert(); box.messageText = "DWB MCP Studio"; box.informativeText = text; box.runModal() }
     @objc func showWindow() { NSApp.activate(ignoringOtherApps: true); if window.isMiniaturized { window.deminiaturize(nil) }; window.makeKeyAndOrderFront(nil) }

@@ -75,6 +75,7 @@
     "scripts/macos/DWBStudio.swift",
     "scripts/macos/install.mjs",
     "scripts/macos/lease-test.mjs",
+    "scripts/macos/package-app.mjs",
     "scripts/macos/native-test.mjs",
     "scripts/macos/preview.mjs",
     "scripts/macos/release.mjs",
