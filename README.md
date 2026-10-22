@@ -1,8 +1,8 @@
 # DWB MCP Studio Core
 
-Windows Beta · 0.1.0-beta.16
+Windows · macOS · Ubuntu — 0.1.0-beta.16 (Pre-release)
 
-Source ปัจจุบันเป็น beta.16 ส่วนลิงก์ดาวน์โหลดด้านล่างเป็น beta.15
+Source และแพ็กดาวน์โหลดปัจจุบันเป็น beta.16
 
 สำหรับ **Ubuntu / remote VPS**: ใช้ตัวติดตั้งผ่าน terminal พร้อม Bash, OpenAI Tunnel และ user systemd service ดู [คู่มือติดตั้ง Ubuntu](docs/UBUNTU-TH.md) ใช้ `bash install.sh --workspace /absolute/folder` หลังติดตั้ง Node.js 22.16+, curl และ unzip
 
@@ -10,9 +10,11 @@ Source ปัจจุบันเป็น beta.16 ส่วนลิงก์�
 
 ## ดาวน์โหลดและเริ่มใช้
 
-- [Windows beta.15 ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.15/dwb-mcp-studio-core-0.1.0-beta.15-windows.zip) — แตกทั้งชุดแล้วเปิด DWB MCP Studio.exe
-- [Ubuntu beta.15 source ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.15/dwb-mcp-studio-0.1.0-beta.15-ubuntu-source.zip) — รุ่นทดลองสำหรับ terminal/VPS ยังไม่มี DWB Dashboard
-- [หน้า Releases และไฟล์ SHA-256](https://github.com/sphakanin/dwb-mcp-studio-public/releases/tag/v0.1.0-beta.15)
+- [Windows beta.16 ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.16/dwb-mcp-studio-core-0.1.0-beta.16-windows.zip) — แตกทั้งชุดแล้วเปิด DWB MCP Studio.exe
+- [macOS Apple Silicon beta.16 DMG](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.16/dwb-mcp-studio-0.1.0-beta.16-macos-arm64.dmg) — เปิดแล้วลากแอปเข้า Applications รวม Node มาแล้ว
+- [Ubuntu beta.16 source ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.16/dwb-mcp-studio-0.1.0-beta.16-ubuntu-source.zip) — รุ่นทดลองสำหรับ terminal/VPS ยังไม่มี DWB Dashboard
+- [macOS beta.16 source ZIP](https://github.com/sphakanin/dwb-mcp-studio-public/releases/download/v0.1.0-beta.16/dwb-mcp-studio-0.1.0-beta.16-macos-source.zip) — สำหรับ build บน Apple Silicon หรือ Intel
+- [หน้า Releases และไฟล์ SHA-256](https://github.com/sphakanin/dwb-mcp-studio-public/releases/tag/v0.1.0-beta.16)
 
 - **ใช้ Git:** clone repository นี้ แล้วเปิด `DWB MCP Studio.exe` ในโฟลเดอร์ที่ clone มา
 - **ดาวน์โหลด source ZIP:** แตกไฟล์ แล้วเปิด `DWB MCP Studio.exe` ได้เหมือนกัน
@@ -30,7 +32,7 @@ Setup เตรียมโปรแกรมจาก source ให้เอง
 
 ### DWB Companion Panel (Experimental)
 
-**DWB Project Launcher** ผ่าน ChatGPT Conversation Panel (MCP Apps + MCP Extensions, `thread` entrypoint) ให้เลือกและล็อก Workspace ต่อแชท, สร้างโปรเจกต์จาก Starter Templates ภายในโฟลเดอร์ที่อนุญาต, เพิ่ม Existing Project และเลือก Related Workspaces เป็น read-only references พร้อมส่ง Context ให้ ChatGPT โดยไม่ต้องพิมพ์ Path ซ้ำ ดู [คู่มือการใช้งาน](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้อยู่ใน source beta.16 และ **ไม่ได้รวมใน release beta.15**
+**DWB Project Launcher** ผ่าน ChatGPT Conversation Panel (MCP Apps + MCP Extensions, `thread` entrypoint) ให้เลือกและล็อก Workspace ต่อแชท, สร้างโปรเจกต์จาก Starter Templates ภายในโฟลเดอร์ที่อนุญาต, เพิ่ม Existing Project และเลือก Related Workspaces เป็น read-only references พร้อมส่ง Context ให้ ChatGPT โดยไม่ต้องพิมพ์ Path ซ้ำ ดู [คู่มือการใช้งาน](docs/COMPANION-PANEL-TH.md) ฟีเจอร์นี้รวมอยู่ใน release beta.16
 
 ### ComfyUI Setup Assistant (Local Agent Skill — ทดลอง)
 
